@@ -99,6 +99,17 @@ protected:
 
     RendererStorage* renderer_storage;
 
+    struct sGbuffers {
+        const uint32_t GBUFFER_COUNT = 2u;
+        const WGPUTextureFormat GBUFFER_FORMAT = WGPUTextureFormat_RGBA32Float;
+        uint32_t width = 0u;
+        uint32_t height = 0u;
+        Texture *textures = nullptr;
+        WGPUTextureView *texture_views = nullptr;
+        Texture* depth_texture;
+        WGPUTextureView depth_texture_view;
+    } gbuffer_data;
+
 #ifndef __EMSCRIPTEN__
     RenderdocCapture* renderdoc_capture;
 #endif
@@ -278,6 +289,7 @@ public:
     WGPUBindGroup get_render_camera_bind_group() { return render_camera_bind_group; }
     WGPUBindGroup get_compute_camera_bind_group() { return compute_camera_bind_group; }
 
+    void init_gbuffers();
     void init_depth_buffers();
     void init_multisample_textures();
     void init_timestamp_queries();
@@ -304,6 +316,9 @@ public:
     void render_transparent(WGPURenderPassEncoder render_pass, const std::vector<std::vector<sRenderData>>& render_lists, const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, uint32_t camera_buffer_stride = 0);
     void render_splats(WGPURenderPassEncoder render_pass, const std::vector<std::vector<sRenderData>>& render_lists, const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, uint32_t camera_buffer_stride = 0);
     void render_2D(WGPURenderPassEncoder render_pass, const std::vector<std::vector<sRenderData>>& render_lists, const sInstanceData& instance_data, WGPUBindGroup camera_bind_group);
+
+    void render_camera_in_gbuffers(const std::vector<std::vector<sRenderData>>& render_lists, WGPUTextureView framebuffer_view, WGPUTextureView depth_view,
+        const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string& pass_name, uint32_t eye_idx, uint32_t camera_offset);
 
     bool get_xr_available();
     bool get_use_mirror_screen();

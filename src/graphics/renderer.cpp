@@ -192,6 +192,8 @@ int Renderer::post_initialize()
         irradiance_texture = RendererStorage::get_texture("data/textures/environments/sky.hdr");
     }
 
+    init_gbuffers();
+
     init_depth_buffers();
 
     init_lighting_bind_group();
@@ -320,7 +322,12 @@ void Renderer::clean()
 
     delete shadow_material;
 
+    delete[] gbuffer_data.textures;
+    delete[] gbuffer_data.texture_views;
+    delete gbuffer_data.depth_texture;
     //delete selected_mesh_aabb;
+
+    // TODO: WHAT HAPPENS WITH TEXTUREVIEW
 
 #ifndef __EMSCRIPTEN__
     delete renderdoc_capture;
@@ -613,6 +620,65 @@ void Renderer::render()
     clear_renderables();
 }
 
+void Renderer::render_camera_in_gbuffers(const std::vector<std::vector<sRenderData>>& render_lists, WGPUTextureView framebuffer_view, WGPUTextureView depth_view,
+    const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string& pass_name, uint32_t eye_idx, uint32_t camera_offset) {
+    WGPURenderPassColorAttachment* gbuffer_attachments = new WGPURenderPassColorAttachment[gbuffer_data.GBUFFER_COUNT];
+
+    for (uint32_t i = 0u; i < gbuffer_data.GBUFFER_COUNT; i++) {
+        gbuffer_attachments[i].view = gbuffer_data.texture_views[i];
+        gbuffer_attachments[i].loadOp = WGPULoadOp_Clear;
+        gbuffer_attachments[i].storeOp = WGPUStoreOp_Store;
+        gbuffer_attachments[i].depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
+        gbuffer_attachments[i].clearValue = WGPUColor{ clear_color.r, clear_color.g, clear_color.b, clear_color.a };
+    }
+
+    WGPURenderPassDepthStencilAttachment render_pass_depth_attachment = {};
+    render_pass_depth_attachment.view = gbuffer_data.depth_texture_view;
+    render_pass_depth_attachment.depthClearValue = 0.0f;
+    render_pass_depth_attachment.depthLoadOp = WGPULoadOp_Clear;
+    render_pass_depth_attachment.depthStoreOp = WGPUStoreOp_Store;
+    render_pass_depth_attachment.depthReadOnly = false;
+    render_pass_depth_attachment.stencilClearValue = 0; // Stencil config necesary, even if unused
+    render_pass_depth_attachment.stencilLoadOp = WGPULoadOp_Undefined;
+    render_pass_depth_attachment.stencilStoreOp = WGPUStoreOp_Undefined;
+    render_pass_depth_attachment.stencilReadOnly = true;
+  
+
+    WGPURenderPassDescriptor render_pass_descr = {};
+    render_pass_descr.colorAttachmentCount = gbuffer_data.GBUFFER_COUNT;
+    render_pass_descr.colorAttachments = gbuffer_attachments;
+    render_pass_descr.depthStencilAttachment = &render_pass_depth_attachment;
+    render_pass_descr.label = { pass_name.c_str(), pass_name.length() };
+
+#ifndef __EMSCRIPTEN__
+    std::vector<WGPUPassTimestampWrites> timestampWrites(1);
+    timestampWrites[0].beginningOfPassWriteIndex = timestamp(global_command_encoder, (pass_name + "_pre_render").c_str());
+    timestampWrites[0].querySet = timestamp_query_set;
+    timestampWrites[0].endOfPassWriteIndex = timestamp(global_command_encoder, (pass_name + "_render").c_str());
+
+    render_pass_descr.timestampWrites = timestampWrites.data();
+#endif
+
+    // Create & fill the render pass (encoder)
+    WGPURenderPassEncoder render_pass = wgpuCommandEncoderBeginRenderPass(global_command_encoder, &render_pass_descr);
+
+#ifndef NDEBUG
+    webgpu_context->push_debug_group(render_pass, { pass_name.c_str(), WGPU_STRLEN });
+#endif
+
+    // TODO: BEGING SUBMITTING RENDER CALLS
+
+#ifndef NDEBUG
+    webgpu_context->pop_debug_group(render_pass);
+#endif
+
+    wgpuRenderPassEncoderEnd(render_pass);
+
+    wgpuRenderPassEncoderRelease(render_pass);
+
+    delete[] gbuffer_attachments;
+}
+
 void Renderer::render_camera(const std::vector<std::vector<sRenderData>>& render_lists, WGPUTextureView framebuffer_view, WGPUTextureView depth_view,
     const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string& pass_name, uint32_t eye_idx, uint32_t camera_offset)
 {
@@ -780,6 +846,33 @@ eCameraType Renderer::get_camera_type()
 void Renderer::set_custom_pass_user_data(void* user_data)
 {
     this->custom_pass_user_data = user_data;
+}
+
+
+void Renderer::init_gbuffers() {
+    gbuffer_data.textures = new Texture[gbuffer_data.GBUFFER_COUNT];
+    gbuffer_data.texture_views = new WGPUTextureView[gbuffer_data.GBUFFER_COUNT];
+    gbuffer_data.depth_texture = new Texture();
+
+    for (uint32_t i = 0u; i < gbuffer_data.GBUFFER_COUNT; i++) {
+        gbuffer_data.textures[i].create(WGPUTextureDimension_2D,
+            gbuffer_data.GBUFFER_FORMAT,
+            { gbuffer_data.width, gbuffer_data.height, 0u },
+            WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding,
+            1u,
+            0u,
+            nullptr);
+        gbuffer_data.texture_views[i] = gbuffer_data.textures[i].get_view();
+    }
+
+    gbuffer_data.depth_texture->create(WGPUTextureDimension_2D,
+        WGPUTextureFormat_Depth32Float,
+        { gbuffer_data.width, gbuffer_data.height, 0u },
+        WGPUTextureUsage_CopySrc | WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding,
+        1u,
+        0u,
+        nullptr);
+    gbuffer_data.depth_texture_view = gbuffer_data.depth_texture->get_view();
 }
 
 void Renderer::init_lighting_bind_group()
