@@ -19,7 +19,7 @@ public:
 	static WebGPUContext* webgpu_context;
 
     void create_render(Shader* shader, const WGPUColorTargetState& p_color_target, const RenderPipelineDescription& desc = {}, const std::vector<WGPUConstantEntry>& constants = {});
-    void create_render_async(Shader* shader, const WGPUColorTargetState& p_color_target, const RenderPipelineDescription& desc = {}, const std::vector<WGPUConstantEntry>& constants = {});
+    void create_render_async(Shader* shader, const uint32_t color_target_count, const WGPUColorTargetState *p_color_targets, const RenderPipelineDescription& desc = {}, const std::vector<WGPUConstantEntry>& constants = {});
 
 	//void create_compute(Shader* shader, WGPUPipelineLayout pipeline_layout);
 	void create_compute(Shader* shader, const std::string& entry_point = "compute", const std::vector<WGPUConstantEntry>& constants = {});

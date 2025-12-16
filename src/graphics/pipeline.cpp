@@ -82,7 +82,7 @@ void Pipeline::create_render(Shader* shader, const WGPUColorTargetState& p_color
     loaded = true;
 }
 
-void Pipeline::create_render_async(Shader* shader, const WGPUColorTargetState& p_color_target, const RenderPipelineDescription& desc, const std::vector<WGPUConstantEntry> &constants)
+void Pipeline::create_render_async(Shader* shader, const uint32_t color_target_count, const WGPUColorTargetState *p_color_targets, const RenderPipelineDescription& desc, const std::vector<WGPUConstantEntry> &constants)
 {
     create_render_common(shader, p_color_target, desc);
 

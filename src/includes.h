@@ -18,3 +18,6 @@ enum eEYE {
     EYE_RIGHT,
     EYE_COUNT // Let's assume this will never be different to 2...
 };
+
+#define USE_DEFERRED_PIPELINE 1u
+#define MAX_GBUFFER_COUNT 5u

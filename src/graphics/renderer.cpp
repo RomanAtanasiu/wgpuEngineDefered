@@ -415,7 +415,7 @@ void Renderer::render()
 
     update_lights();
 
-    render_shadow_maps();
+    //render_shadow_maps();
 
     camera_data.exposure = exposure;
     camera_data.ibl_intensity = ibl_intensity;
@@ -435,7 +435,8 @@ void Renderer::render()
 
         wgpuQueueWriteBuffer(webgpu_context->device_queue, std::get<WGPUBuffer>(camera_uniform.data), 0, &camera_data, sizeof(sCameraData));
 
-        render_camera(render_lists, screen_surface_texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "forward_render");
+        render_camera_in_gbuffers(render_lists, screen_surface_texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "deferred_render_pass");
+        //render_camera(render_lists, screen_surface_texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "forward_render");
     }
 #ifdef XR_SUPPORT
     else {
@@ -500,7 +501,7 @@ void Renderer::render()
 #endif
     }
 #endif
-
+    // TODO(Juan): Re enable 2d rendering after converting teh shaders to deferred
     // Render 2D
     if (!is_xr_available || use_mirror_screen) {
 
@@ -622,9 +623,12 @@ void Renderer::render()
 
 void Renderer::render_camera_in_gbuffers(const std::vector<std::vector<sRenderData>>& render_lists, WGPUTextureView framebuffer_view, WGPUTextureView depth_view,
     const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string& pass_name, uint32_t eye_idx, uint32_t camera_offset) {
-    WGPURenderPassColorAttachment* gbuffer_attachments = new WGPURenderPassColorAttachment[gbuffer_data.GBUFFER_COUNT];
+    WGPURenderPassColorAttachment gbuffer_attachments[MAX_GBUFFER_COUNT];
+
+    assert(gbuffer_data.GBUFFER_COUNT <= MAX_GBUFFER_COUNT && "Verify that we are not using too many gbuffers");
 
     for (uint32_t i = 0u; i < gbuffer_data.GBUFFER_COUNT; i++) {
+        gbuffer_attachments[i] = {};
         gbuffer_attachments[i].view = gbuffer_data.texture_views[i];
         gbuffer_attachments[i].loadOp = WGPULoadOp_Clear;
         gbuffer_attachments[i].storeOp = WGPUStoreOp_Store;
@@ -666,7 +670,22 @@ void Renderer::render_camera_in_gbuffers(const std::vector<std::vector<sRenderDa
     webgpu_context->push_debug_group(render_pass, { pass_name.c_str(), WGPU_STRLEN });
 #endif
 
-    // TODO: BEGING SUBMITTING RENDER CALLS
+    // Opaque render calls to fill the G-buffer
+    {
+#ifndef NDEBUG
+        webgpu_context->push_debug_group(render_pass, { "Opaque gbuffer-pass", WGPU_STRLEN });
+#endif
+
+        render_render_list(render_pass, render_lists[RENDER_LIST_OPAQUE], RENDER_LIST_OPAQUE, instance_data, camera_bind_group, camera_buffer_stride);
+
+#ifndef NDEBUG
+        webgpu_context->pop_debug_group(render_pass);
+#endif
+    }
+
+    // Lighing pass
+
+    // Post process...
 
 #ifndef NDEBUG
     webgpu_context->pop_debug_group(render_pass);
@@ -675,8 +694,6 @@ void Renderer::render_camera_in_gbuffers(const std::vector<std::vector<sRenderDa
     wgpuRenderPassEncoderEnd(render_pass);
 
     wgpuRenderPassEncoderRelease(render_pass);
-
-    delete[] gbuffer_attachments;
 }
 
 void Renderer::render_camera(const std::vector<std::vector<sRenderData>>& render_lists, WGPUTextureView framebuffer_view, WGPUTextureView depth_view,
@@ -857,20 +874,20 @@ void Renderer::init_gbuffers() {
     for (uint32_t i = 0u; i < gbuffer_data.GBUFFER_COUNT; i++) {
         gbuffer_data.textures[i].create(WGPUTextureDimension_2D,
             gbuffer_data.GBUFFER_FORMAT,
-            { gbuffer_data.width, gbuffer_data.height, 0u },
+            { gbuffer_data.width, gbuffer_data.height, 1u },
             WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding,
             1u,
-            0u,
+            1u,
             nullptr);
         gbuffer_data.texture_views[i] = gbuffer_data.textures[i].get_view();
     }
 
     gbuffer_data.depth_texture->create(WGPUTextureDimension_2D,
         WGPUTextureFormat_Depth32Float,
-        { gbuffer_data.width, gbuffer_data.height, 0u },
-        WGPUTextureUsage_CopySrc | WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding,
+        { gbuffer_data.width, gbuffer_data.height, 1u },
+        WGPUTextureUsage_CopySrc | WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding,
         1u,
-        0u,
+        1u,
         nullptr);
     gbuffer_data.depth_texture_view = gbuffer_data.depth_texture->get_view();
 }

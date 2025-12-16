@@ -17,7 +17,6 @@
 #include "glm/gtx/easing.hpp"
 #include "glm/gtx/compatibility.hpp"
 
-#include "shaders/mesh_forward.wgsl.gen.h"
 #include "shaders/ui/ui_group.wgsl.gen.h"
 #include "shaders/ui/ui_button.wgsl.gen.h"
 #include "shaders/ui/ui_text_shadow.wgsl.gen.h"

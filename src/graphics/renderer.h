@@ -100,14 +100,10 @@ protected:
     RendererStorage* renderer_storage;
 
     struct sGbuffers {
-        const uint32_t GBUFFER_COUNT = 2u;
-        const WGPUTextureFormat GBUFFER_FORMAT = WGPUTextureFormat_RGBA32Float;
-        uint32_t width = 0u;
-        uint32_t height = 0u;
         Texture *textures = nullptr;
         WGPUTextureView *texture_views = nullptr;
-        Texture* depth_texture;
-        WGPUTextureView depth_texture_view;
+        Texture* depth_texture = nullptr;
+        WGPUTextureView depth_texture_view = nullptr;
     } gbuffer_data;
 
 #ifndef __EMSCRIPTEN__
@@ -318,7 +314,7 @@ public:
     void render_2D(WGPURenderPassEncoder render_pass, const std::vector<std::vector<sRenderData>>& render_lists, const sInstanceData& instance_data, WGPUBindGroup camera_bind_group);
 
     void render_camera_in_gbuffers(const std::vector<std::vector<sRenderData>>& render_lists, WGPUTextureView framebuffer_view, WGPUTextureView depth_view,
-        const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string& pass_name, uint32_t eye_idx, uint32_t camera_offset);
+        const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string& pass_name = "", uint32_t eye_idx = 0, uint32_t camera_offset = 0);
 
     bool get_xr_available();
     bool get_use_mirror_screen();

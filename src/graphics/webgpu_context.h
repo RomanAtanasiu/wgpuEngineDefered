@@ -83,6 +83,13 @@ struct WebGPUContext {
     static WGPUTextureFormat    swapchain_format;
     static WGPUTextureFormat    xr_swapchain_format;
 
+    static struct sGbufferFormat {
+        const uint32_t GBUFFER_COUNT = 2u;
+        const WGPUTextureFormat GBUFFER_FORMAT = WGPUTextureFormat_RGBA32Float;
+        uint32_t width = 1920u;
+        uint32_t height = 1080u;
+    } gbuffer_format;
+
     int                    initialize(bool create_screen_swapchain);
     void                   destroy();
 

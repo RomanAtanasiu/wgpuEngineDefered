@@ -157,7 +157,7 @@ public:
     void set_use_iridescence(bool value);
     void set_use_anisotropy(bool value);
 
-    void set_shader(Shader* shader);
+    void set_shader(Shader* shader, bool deferred_flag = false);
     void set_shader_pipeline(Pipeline* pipeline);
 
     glm::vec4 get_color() const;
@@ -226,6 +226,7 @@ public:
     bool has_anisotropy() const { return use_anisotropy; }
     bool has_iridescence() const { return use_iridescence; }
     bool has_clearcoat() const { return use_clearcoat; }
+    bool is_deferred_material() const { return deferred_material_flag; }
 
     void render_gui();
 
@@ -279,6 +280,8 @@ private:
     bool is_2D = false;
     bool fragment_write = true;
     bool use_uv_transforms = false;
+
+    bool deferred_material_flag = false;
 
     eTransparencyType transparency_type = ALPHA_OPAQUE;
     eTopologyType topology_type = TOPOLOGY_TRIANGLE_LIST;

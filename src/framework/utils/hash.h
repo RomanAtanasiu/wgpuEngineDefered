@@ -22,7 +22,8 @@ inline void hash_combine(std::size_t& seed, std::vector<std::size_t> vs)
 
 struct RenderPipelineKey {
     const Shader* shader;
-    WGPUColorTargetState color_target;
+    uint32_t color_target_count = 0u;
+    WGPUColorTargetState color_targets[MAX_GBUFFER_COUNT];
     RenderPipelineDescription description;
     WGPUPipelineLayout pipeline_layout;
 
@@ -39,9 +40,6 @@ struct std::hash<RenderPipelineKey>
         using std::string;
 
         std::size_t h1 = hash<const void*>()(k.shader);
-        std::size_t h2 = hash<uint32_t>()(static_cast<uint32_t>(k.color_target.format));
-        std::size_t h3 = hash<uint32_t>()(static_cast<uint32_t>(k.color_target.writeMask));
-        std::size_t h4 = hash<void const*>()(k.color_target.blend);
         std::size_t h5 = hash<uint32_t>()(static_cast<uint32_t>(k.description.cull_mode));
         std::size_t h6 = hash<uint32_t>()(static_cast<uint32_t>(k.description.topology));
         std::size_t h7 = hash<uint32_t>()(static_cast<uint32_t>(k.description.depth_read));
@@ -50,9 +48,15 @@ struct std::hash<RenderPipelineKey>
         std::size_t h10 = hash<uint32_t>()(static_cast<uint32_t>(k.description.topology));
         std::size_t h11 = hash<uint32_t>()(static_cast<uint32_t>(k.description.depth_compare));
         std::size_t h12 = hash<const void*>()(k.pipeline_layout);
+        std::size_t h13 = hash<uint32_t>()(static_cast<uint32_t>(k.color_target_count));
 
         std::size_t seed = 0;
-        hash_combine(seed, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12);
+        for (uint32_t i = 0; i < k.color_target_count; i++) {
+            seed ^= hash<uint32_t>()(static_cast<uint32_t>(k.color_targets[i].format)) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            seed ^= hash<uint32_t>()(static_cast<uint32_t>(k.color_targets[i].writeMask)) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            seed ^= hash<void const*>()(k.color_targets[i].blend) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+        hash_combine(seed, h1, h5, h6, h7, h8, h9, h10, h11, h12, h13);
         return seed;
     }
 };

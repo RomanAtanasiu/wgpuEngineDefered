@@ -400,9 +400,10 @@ void Material::set_use_anisotropy(bool value)
     dirty_flags |= eMaterialProperties::PROP_ANISOTROPY_TOGGLE;
 }
 
-void Material::set_shader(Shader* shader)
+void Material::set_shader(Shader* shader, bool deferred_flag)
 {
     this->shader = shader;
+    deferred_material_flag = deferred_flag;
     dirty_flags |= eMaterialProperties::PROP_SHADER;
 }
 
