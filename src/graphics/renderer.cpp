@@ -236,8 +236,9 @@ int Renderer::post_initialize()
     desc.blending_enabled = true;
     desc.sample_count = msaa_count;
 
+    // TODO( CONVERT GS TO DEFERRED
     gs_render_shader = RendererStorage::get_shader_from_source(shaders::gs_render::source, shaders::gs_render::path, shaders::gs_render::libraries);
-    gs_render_pipeline.create_render_async(gs_render_shader, color_target, desc);
+    gs_render_pipeline.create_render_async(gs_render_shader, &color_target, 1u, desc);
 
     shadow_material = new Material();
     shadow_material->set_type(MATERIAL_UNLIT);
@@ -625,9 +626,9 @@ void Renderer::render_camera_in_gbuffers(const std::vector<std::vector<sRenderDa
     const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string& pass_name, uint32_t eye_idx, uint32_t camera_offset) {
     WGPURenderPassColorAttachment gbuffer_attachments[MAX_GBUFFER_COUNT];
 
-    assert(gbuffer_data.GBUFFER_COUNT <= MAX_GBUFFER_COUNT && "Verify that we are not using too many gbuffers");
+    assert(webgpu_context->gbuffer_format.GBUFFER_COUNT <= MAX_GBUFFER_COUNT && "Verify that we are not using too many gbuffers");
 
-    for (uint32_t i = 0u; i < gbuffer_data.GBUFFER_COUNT; i++) {
+    for (uint32_t i = 0u; i < webgpu_context->gbuffer_format.GBUFFER_COUNT; i++) {
         gbuffer_attachments[i] = {};
         gbuffer_attachments[i].view = gbuffer_data.texture_views[i];
         gbuffer_attachments[i].loadOp = WGPULoadOp_Clear;
@@ -649,7 +650,7 @@ void Renderer::render_camera_in_gbuffers(const std::vector<std::vector<sRenderDa
   
 
     WGPURenderPassDescriptor render_pass_descr = {};
-    render_pass_descr.colorAttachmentCount = gbuffer_data.GBUFFER_COUNT;
+    render_pass_descr.colorAttachmentCount = webgpu_context->gbuffer_format.GBUFFER_COUNT;
     render_pass_descr.colorAttachments = gbuffer_attachments;
     render_pass_descr.depthStencilAttachment = &render_pass_depth_attachment;
     render_pass_descr.label = { pass_name.c_str(), pass_name.length() };
@@ -676,7 +677,7 @@ void Renderer::render_camera_in_gbuffers(const std::vector<std::vector<sRenderDa
         webgpu_context->push_debug_group(render_pass, { "Opaque gbuffer-pass", WGPU_STRLEN });
 #endif
 
-        render_render_list(render_pass, render_lists[RENDER_LIST_OPAQUE], RENDER_LIST_OPAQUE, instance_data, camera_bind_group, camera_buffer_stride);
+        render_render_list(render_pass, render_lists[RENDER_LIST_OPAQUE], RENDER_LIST_OPAQUE, instance_data, camera_bind_group, camera_offset);
 
 #ifndef NDEBUG
         webgpu_context->pop_debug_group(render_pass);
@@ -867,14 +868,14 @@ void Renderer::set_custom_pass_user_data(void* user_data)
 
 
 void Renderer::init_gbuffers() {
-    gbuffer_data.textures = new Texture[gbuffer_data.GBUFFER_COUNT];
-    gbuffer_data.texture_views = new WGPUTextureView[gbuffer_data.GBUFFER_COUNT];
+    gbuffer_data.textures = new Texture[webgpu_context->gbuffer_format.GBUFFER_COUNT];
+    gbuffer_data.texture_views = new WGPUTextureView[webgpu_context->gbuffer_format.GBUFFER_COUNT];
     gbuffer_data.depth_texture = new Texture();
 
-    for (uint32_t i = 0u; i < gbuffer_data.GBUFFER_COUNT; i++) {
+    for (uint32_t i = 0u; i < webgpu_context->gbuffer_format.GBUFFER_COUNT; i++) {
         gbuffer_data.textures[i].create(WGPUTextureDimension_2D,
-            gbuffer_data.GBUFFER_FORMAT,
-            { gbuffer_data.width, gbuffer_data.height, 1u },
+            webgpu_context->gbuffer_format.GBUFFER_FORMAT,
+            { webgpu_context->gbuffer_format.width, webgpu_context->gbuffer_format.height, 1u },
             WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding,
             1u,
             1u,
@@ -884,7 +885,7 @@ void Renderer::init_gbuffers() {
 
     gbuffer_data.depth_texture->create(WGPUTextureDimension_2D,
         WGPUTextureFormat_Depth32Float,
-        { gbuffer_data.width, gbuffer_data.height, 1u },
+        { webgpu_context->gbuffer_format.width, webgpu_context->gbuffer_format.height, 1u },
         WGPUTextureUsage_CopySrc | WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding,
         1u,
         1u,

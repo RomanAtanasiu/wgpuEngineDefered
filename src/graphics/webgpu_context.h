@@ -83,7 +83,7 @@ struct WebGPUContext {
     static WGPUTextureFormat    swapchain_format;
     static WGPUTextureFormat    xr_swapchain_format;
 
-    static struct sGbufferFormat {
+    struct sGbufferFormat {
         const uint32_t GBUFFER_COUNT = 2u;
         const WGPUTextureFormat GBUFFER_FORMAT = WGPUTextureFormat_RGBA32Float;
         uint32_t width = 1920u;
@@ -129,9 +129,9 @@ struct WebGPUContext {
     void                   copy_texture_to_texture(WGPUTexture texture_src, WGPUTexture texture_dst, uint32_t src_mipmap_level, uint32_t dst_mipmap_level, const WGPUExtent3D& copy_size, const WGPUOrigin3D& src_origin = { 0, 0, 0 }, const WGPUOrigin3D& dst_origin = { 0, 0, 0 }, WGPUCommandEncoder custom_command_encoder = nullptr);
 
     WGPURenderPipeline     create_render_pipeline(WGPUShaderModule render_shader_module, WGPUPipelineLayout pipeline_layout, const std::vector<WGPUVertexBufferLayout>& vertex_attributes,
-                                                  WGPUColorTargetState color_target, const RenderPipelineDescription& description, std::vector< WGPUConstantEntry> constants = {});
+                                                  const WGPUColorTargetState* color_targets, const uint32_t color_target_count, const RenderPipelineDescription& description, std::vector< WGPUConstantEntry> constants = {});
     void                   create_render_pipeline_async(WGPUShaderModule render_shader_module, WGPUPipelineLayout pipeline_layout, const std::vector<WGPUVertexBufferLayout>& vertex_attributes,
-                                                  WGPUColorTargetState color_target, WGPUCreateRenderPipelineAsyncCallbackInfo callback_info, const RenderPipelineDescription& description,
+                                                  const WGPUColorTargetState *color_targets, const uint32_t color_target_count, WGPUCreateRenderPipelineAsyncCallbackInfo callback_info, const RenderPipelineDescription& description,
                                                   std::vector< WGPUConstantEntry> constants = {});
 
     WGPUComputePipeline    create_compute_pipeline(WGPUShaderModule compute_shader_module, WGPUPipelineLayout pipeline_layout, const char* entry_point = "compute", std::vector< WGPUConstantEntry> constants = {});

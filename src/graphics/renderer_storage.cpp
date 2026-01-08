@@ -915,7 +915,7 @@ void RendererStorage::register_render_pipeline(Material* material)
     }
 
     Pipeline* render_pipeline = new Pipeline();
-    render_pipeline->create_render_async(material->get_shader_ref(), key.color_target_count, key.color_targets, key.description);
+    render_pipeline->create_render_async(material->get_shader_ref(), key.color_targets, key.color_target_count, key.description);
     registered_render_pipelines[key] = render_pipeline;
 }
 
@@ -986,6 +986,7 @@ RenderPipelineKey RendererStorage::get_render_pipeline_key(Material* material)
     if (material->is_deferred_material()) {
         current_pipeline_key.color_target_count = webgpu_context->gbuffer_format.GBUFFER_COUNT;
         for (uint32_t i = 0u; i < webgpu_context->gbuffer_format.GBUFFER_COUNT; i++) {
+            current_pipeline_key.color_targets[i] = {};
             current_pipeline_key.color_targets[i].format = webgpu_context->gbuffer_format.GBUFFER_FORMAT;
             current_pipeline_key.color_targets[i].writeMask = WGPUColorWriteMask_All;
             current_pipeline_key.color_targets[i].blend = nullptr;
@@ -996,6 +997,7 @@ RenderPipelineKey RendererStorage::get_render_pipeline_key(Material* material)
         current_pipeline_key.description.has_fragment_state = material->get_fragment_write();
     } else {
         current_pipeline_key.color_target_count = 1u;
+        current_pipeline_key.color_targets[0] = {};
         current_pipeline_key.color_targets[0].format = swapchain_format;
         current_pipeline_key.color_targets[0].writeMask = WGPUColorWriteMask_All;
 

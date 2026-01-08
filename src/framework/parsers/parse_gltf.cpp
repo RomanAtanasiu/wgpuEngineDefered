@@ -1854,7 +1854,7 @@ void GltfParser::on_async_finished()
         }
 // TODO(Juan): This depends not in the deferred pipline, but also on the alpha blend
 #ifdef USE_DEFERRED_PIPELINE
-        material->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_deferred::source, shaders::mesh_deferred::path, shaders::mesh_deferred::libraries, material));
+        material->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_deferred::source, shaders::mesh_deferred::path, shaders::mesh_deferred::libraries, material), true);
 #else
         material->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, material));
 #endif

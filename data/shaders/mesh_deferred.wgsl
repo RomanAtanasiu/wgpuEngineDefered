@@ -227,7 +227,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_facing: bool) -> Fr
     m.ao = 1.0;
 #endif // OCLUSSION_TEXTURE
 
-    out.gbuffer_albedo_metalness = vec4f(albedo_color.x, albedo_color.y, albedo_color.z, m.metallic);
+    out.gbuffer_albedo_metallic = vec4f(albedo_color.x, albedo_color.y, albedo_color.z, m.metallic);
     out.gbuffer_normal_roughness = vec4f(m.normal.x, m.normal.y, m.normal.z, m.roughness);
 
     // m.roughness = max(m.roughness, 0.04);

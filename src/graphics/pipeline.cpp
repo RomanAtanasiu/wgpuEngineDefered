@@ -40,7 +40,7 @@ void compute_pipeline_creation_callback(WGPUCreatePipelineAsyncStatus status, WG
     }
 }
 
-void Pipeline::create_render_common(Shader* shader, const WGPUColorTargetState& p_color_target, const RenderPipelineDescription& desc)
+void Pipeline::create_render_common(Shader* shader, const WGPUColorTargetState* p_color_targets, const uint32_t color_target_count, const RenderPipelineDescription& desc)
 {
     const std::vector<WGPUBindGroupLayout> layouts_by_id = shader->get_bind_group_layouts();
     std::vector<WGPUBindGroupLayout> bind_group_layouts;
@@ -51,11 +51,20 @@ void Pipeline::create_render_common(Shader* shader, const WGPUColorTargetState& 
 
     // Copy pipeline info
     description = desc;
-    description.blending_enabled = (p_color_target.blend != nullptr);
-    color_target = p_color_target;
+    
+    for (uint32_t i = 0u; i < color_target_count; i++) {
+        description.blending_enabled = (p_color_targets[i].blend != nullptr);
+        color_targets[i] = p_color_targets[i];
+
+        if (i > 0u && p_color_targets[i].blend != p_color_targets[i - 1].blend) {
+            spdlog::error("Different blending configs for the different render attachments is not allowed (for now)");
+            assert(false);
+        }
+    }
 
     if (description.blending_enabled) {
-        blend_state = p_color_target.blend;
+        // Since all the configs should be the same, just pick the first one
+        blend_state = p_color_targets[0].blend;
     }
 }
 
@@ -71,20 +80,20 @@ void Pipeline::create_compute_common(Shader* shader)
 
 void Pipeline::create_render(Shader* shader, const WGPUColorTargetState& p_color_target, const RenderPipelineDescription& desc, const std::vector<WGPUConstantEntry> &constants)
 {
-    create_render_common(shader, p_color_target, desc);
+    create_render_common(shader, &p_color_target, 1u, desc);
 
     spdlog::info("Compiling render pipeline for shader {}", shader->get_path());
 
-	pipeline = webgpu_context->create_render_pipeline(shader->get_module(), shader->get_pipeline_layout(), shader->get_vertex_buffer_layouts(), p_color_target, desc, constants);
+	pipeline = webgpu_context->create_render_pipeline(shader->get_module(), shader->get_pipeline_layout(), shader->get_vertex_buffer_layouts(), &p_color_target, 1u, desc, constants);
 
 	shader->set_pipeline(this);
 
     loaded = true;
 }
 
-void Pipeline::create_render_async(Shader* shader, const uint32_t color_target_count, const WGPUColorTargetState *p_color_targets, const RenderPipelineDescription& desc, const std::vector<WGPUConstantEntry> &constants)
+void Pipeline::create_render_async(Shader* shader, const WGPUColorTargetState *p_color_targets, const uint32_t color_target_count, const RenderPipelineDescription& desc, const std::vector<WGPUConstantEntry> &constants)
 {
-    create_render_common(shader, p_color_target, desc);
+    create_render_common(shader, p_color_targets, color_target_count, desc);
 
     spdlog::info("Compiling async render pipeline for shader {}", shader->get_path());
 
@@ -94,7 +103,7 @@ void Pipeline::create_render_async(Shader* shader, const uint32_t color_target_c
     callback_info.userdata1 = (void*)this;
 
     webgpu_context->create_render_pipeline_async(shader->get_module(), shader->get_pipeline_layout(), shader->get_vertex_buffer_layouts(),
-        p_color_target, callback_info, desc, constants);
+        p_color_targets, color_target_count, callback_info, desc, constants);
 
     shader->set_pipeline(this);
 
@@ -137,13 +146,15 @@ void Pipeline::reload(Shader* shader)
 	if (std::holds_alternative<WGPURenderPipeline>(pipeline)) {
 		wgpuRenderPipelineRelease(std::get<WGPURenderPipeline>(pipeline));
         if (description.blending_enabled) {
-            color_target.blend = blend_state;
+            for (uint32_t i = 0u; i < color_target_count; i++) {
+                color_targets[i].blend = blend_state;
+            }
         }
 
         description.sample_count = Renderer::instance->get_msaa_count();
 
 		pipeline = webgpu_context->create_render_pipeline(shader->get_module(), shader->get_pipeline_layout(), shader->get_vertex_buffer_layouts(),
-            color_target, description);
+            color_targets, color_target_count, description);
 	}
 	else {
 		wgpuComputePipelineRelease(std::get<WGPUComputePipeline>(pipeline));

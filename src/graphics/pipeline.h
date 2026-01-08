@@ -19,7 +19,7 @@ public:
 	static WebGPUContext* webgpu_context;
 
     void create_render(Shader* shader, const WGPUColorTargetState& p_color_target, const RenderPipelineDescription& desc = {}, const std::vector<WGPUConstantEntry>& constants = {});
-    void create_render_async(Shader* shader, const uint32_t color_target_count, const WGPUColorTargetState *p_color_targets, const RenderPipelineDescription& desc = {}, const std::vector<WGPUConstantEntry>& constants = {});
+    void create_render_async(Shader* shader, const WGPUColorTargetState *p_color_targets, const uint32_t color_target_count, const RenderPipelineDescription& desc = {}, const std::vector<WGPUConstantEntry>& constants = {});
 
 	//void create_compute(Shader* shader, WGPUPipelineLayout pipeline_layout);
 	void create_compute(Shader* shader, const std::string& entry_point = "compute", const std::vector<WGPUConstantEntry>& constants = {});
@@ -46,12 +46,13 @@ public:
 
 private:
 
-    void create_render_common(Shader* shader, const WGPUColorTargetState& p_color_target, const RenderPipelineDescription& desc = {});
+    void create_render_common(Shader* shader, const WGPUColorTargetState *p_color_targets, const uint32_t color_target_count, const RenderPipelineDescription& desc = {});
     void create_compute_common(Shader* shader);
 
     WGPUPipeline pipeline;
 
-	WGPUColorTargetState    color_target;
+	WGPUColorTargetState    color_targets[MAX_GBUFFER_COUNT];
+    uint32_t                color_target_count = 0u;
 	WGPUBlendState const*   blend_state = nullptr;
     RenderPipelineDescription     description;
 
