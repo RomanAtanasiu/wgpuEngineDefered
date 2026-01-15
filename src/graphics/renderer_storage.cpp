@@ -744,6 +744,10 @@ std::vector<std::string> RendererStorage::get_common_define_specializations(cons
 
     std::vector<std::string> define_specializations;
 
+#ifndef NDEBUG
+    define_specializations.push_back("DEBUG");
+#endif
+
     if (material->get_diffuse_texture()) {
         define_specializations.push_back("ALBEDO_TEXTURE");
     }

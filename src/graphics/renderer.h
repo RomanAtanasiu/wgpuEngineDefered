@@ -106,6 +106,13 @@ protected:
         WGPUTextureView depth_texture_view = nullptr;
     } gbuffer_data;
 
+    WGPUBindGroup gbuffers_resolve_bindgroup = nullptr;
+
+    Shader* gbuffer_lighting_pass_shader = nullptr;
+    Pipeline light_pass_deferred_pipeline;
+
+    Uniform gbuffer_sampler_uniform;
+
 #ifndef __EMSCRIPTEN__
     RenderdocCapture* renderdoc_capture;
 #endif
@@ -159,6 +166,9 @@ protected:
         glm::mat4x4 view_projection;
         glm::mat4x4 view;
         glm::mat4x4 projection;
+        //glm::mat4x4 inv_view;
+        //glm::mat4x4 inv_projection;
+        //glm::mat4x4 inv_view_projection;
 
         glm::vec3 eye = {};
         float exposure = 1.0f;
@@ -286,6 +296,7 @@ public:
     WGPUBindGroup get_compute_camera_bind_group() { return compute_camera_bind_group; }
 
     void init_gbuffers();
+    void init_deferred_lightpass();
     void init_depth_buffers();
     void init_multisample_textures();
     void init_timestamp_queries();
@@ -314,6 +325,9 @@ public:
     void render_2D(WGPURenderPassEncoder render_pass, const std::vector<std::vector<sRenderData>>& render_lists, const sInstanceData& instance_data, WGPUBindGroup camera_bind_group);
 
     void render_camera_in_gbuffers(const std::vector<std::vector<sRenderData>>& render_lists, WGPUTextureView framebuffer_view, WGPUTextureView depth_view,
+        const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string& pass_name = "", uint32_t eye_idx = 0, uint32_t camera_offset = 0);
+
+    void resolve_gbuffers(WGPUTextureView framebuffer_view, WGPUTexture depth_texture, WGPUTextureView depth_view,
         const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string& pass_name = "", uint32_t eye_idx = 0, uint32_t camera_offset = 0);
 
     bool get_xr_available();

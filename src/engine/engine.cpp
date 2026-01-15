@@ -690,6 +690,8 @@ void Engine::render_default_gui()
                 Renderer::instance->set_frustum_camera_paused(pause_frustum_culling_camera);
             }
 
+            // TODO(Juan): Deferred debug UI
+
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
