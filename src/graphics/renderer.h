@@ -81,6 +81,9 @@ protected:
     WGPUBindGroup shadow_camera_bind_group = nullptr;
     WGPUBindGroup compute_camera_bind_group = nullptr;
     WGPUBindGroup render_camera_bind_group_2d = nullptr;
+	WGPUBindGroup gbuffers_light_pass_camera_bind_group = nullptr;
+
+
 
     Uniform camera_uniform;
     Uniform camera_2d_uniform;
@@ -106,10 +109,19 @@ protected:
         WGPUTextureView depth_texture_view = nullptr;
     } gbuffer_data;
 
+    struct sLightBuffer {
+		Texture* texture = nullptr;
+		WGPUTextureView texture_view = nullptr;
+	} light_buffer_data;
+
     WGPUBindGroup gbuffers_resolve_bindgroup = nullptr;
+	WGPUBindGroup single_texture_bindgroup = nullptr;
 
     Shader* gbuffer_lighting_pass_shader = nullptr;
+	Shader *gamma_pass_shader = nullptr;
+
     Pipeline light_pass_deferred_pipeline;
+	Pipeline gamma_correction_pipeline;
 
     Uniform gbuffer_sampler_uniform;
 
@@ -124,7 +136,7 @@ protected:
     bool use_mirror_screen      = false;
     bool use_custom_mirror      = false;
 
-    glm::vec4 clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
+    glm::vec4 clear_color = { 0.1f, 0.1f, 0.1f, 1.0f };
 
     // inverted for reverse-z
     float z_near = 1000.0f;
@@ -162,13 +174,15 @@ protected:
         WGPUBindGroup instances_bind_groups[RENDER_LIST_COUNT] = {};
     };
 
+
+
     struct sCameraData {
         glm::mat4x4 view_projection;
         glm::mat4x4 view;
         glm::mat4x4 projection;
         //glm::mat4x4 inv_view;
         //glm::mat4x4 inv_projection;
-        //glm::mat4x4 inv_view_projection;
+        glm::mat4x4 inv_view_projection;
 
         glm::vec3 eye = {};
         float exposure = 1.0f;
@@ -177,7 +191,13 @@ protected:
         float ibl_intensity = 1.0f;
 
         glm::vec2 screen_size;
-        glm::vec2 dummy;
+		//glm::vec3 dummy;
+		uint32_t show_depthbuffer = 0;
+		uint32_t show_gbuffers = 0; 
+		//uint32_t gbuffer_num;
+
+        glm::vec4 dummy;
+		glm::vec4 dummy_for_inv[12];
     };
 
     eCameraType camera_type = CAMERA_FLYOVER;
@@ -296,6 +316,8 @@ public:
     WGPUBindGroup get_compute_camera_bind_group() { return compute_camera_bind_group; }
 
     void init_gbuffers();
+	void init_deferred_light_buffer();
+	void init_gamma_pass();
     void init_deferred_lightpass();
     void init_depth_buffers();
     void init_multisample_textures();
@@ -329,6 +351,9 @@ public:
 
     void resolve_gbuffers(WGPUTextureView framebuffer_view, WGPUTexture depth_texture, WGPUTextureView depth_view,
         const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string& pass_name = "", uint32_t eye_idx = 0, uint32_t camera_offset = 0);
+
+    void render_gamma_correction(WGPUTextureView framebuffer_view,
+        const std::string &pass_name = "");
 
     bool get_xr_available();
     bool get_use_mirror_screen();
@@ -394,4 +419,12 @@ public:
     Texture* get_irradiance_texture() { return irradiance_texture; }
 
     Camera* get_camera() { return camera_3d; }
+
+    void set_show_gbuffers(int a) { camera_data.show_gbuffers = a; }
+	int get_show_gbuffers() { return camera_data.show_gbuffers; }
+
+	void set_show_depthbuffer(int a) { camera_data.show_depthbuffer = a; }
+	int get_show_depthbuffer() { return camera_data.show_depthbuffer; }
+
+    int get_num_of_gbuffers() { return webgpu_context->gbuffer_format.GBUFFER_COUNT; }
 };

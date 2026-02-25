@@ -201,7 +201,11 @@ int Engine::initialize(Renderer* renderer, const sEngineConfiguration& configura
 int Engine::post_initialize()
 {
     main_scene = new Scene("main_scene");
-
+	std::vector<Node *> entities;
+	//parse_scene("C:\\Users\\Usuario\\Documents\\gold_Suzanne.glb", entities);
+	//parse_scene("C:\\Users\\Usuario\\Documents\\GitHub\\ACG-Ray-Tracing\\resources\\Peach.obj", entities);
+	//parse_scene("C:\\Users\\Usuario\\Documents\\scenes\\textures_gold\\suzanne gold scene\\.obj\\Untitled.obj", entities);
+    main_scene->add_nodes(entities);
     return 0;
 }
 
@@ -317,6 +321,7 @@ void Engine::init_shader_watchers()
 
 #ifndef NDEBUG
     shader_reload_watcher = new FileWatcher({ "./data/shaders/" }, 1.0f, [](std::string path_to_watch, eFileStatus status) -> void {
+	//shader_reload_watcher = new FileWatcher({ engine_shaders }, 1.0f, [](std::string path_to_watch, eFileStatus status) -> void {
 
         // Process only regular files, all other file types are ignored
         if (!std::filesystem::is_regular_file(std::filesystem::path(path_to_watch)) && status != eFileStatus::Erased) {
@@ -477,6 +482,7 @@ void Engine::on_frame()
     ImGuizmo::SetOrthographic(false);
     ImGuizmo::BeginFrame();
 
+    //render_default_gui();
     render();
 
 #ifdef __EMSCRIPTEN__
@@ -691,7 +697,43 @@ void Engine::render_default_gui()
             }
 
             // TODO(Juan): Deferred debug UI
+			bool showing_gbuffers_active =
+					renderer->get_show_gbuffers() != 0;
+			bool showing_depthbuffer_active = renderer->get_show_depthbuffer() != 0;
+			//show default
+            if (not(showing_gbuffers_active) && not(showing_depthbuffer_active)){
+				if (ImGui::Button("Render GBuffers or DepthBuffer")) {
+					renderer->set_show_gbuffers(1);
+					renderer->set_show_depthbuffer(0);
+				}
+			}
+            //show gbuffers
+			else if (showing_gbuffers_active) {
+					int active_gbuffer = renderer->get_show_gbuffers();
+					ImGui::SliderInt("Select gbuffer",
+							&active_gbuffer, 1, renderer->get_num_of_gbuffers());
+					renderer->set_show_gbuffers(active_gbuffer);
+                    if(ImGui::Button("Show dephtbuffer")) {
+						renderer->set_show_gbuffers(0);
+						renderer->set_show_depthbuffer(1);
+                    }
+			} else //depthbuffer
+            {
+				if (ImGui::Button("Show gbuffers")) {
+					renderer->set_show_gbuffers(1);
+					renderer->set_show_depthbuffer(0);
+				}
+            }
+      
+			if (showing_gbuffers_active || showing_depthbuffer_active) {
+				if (ImGui::Button("Disable buffers view")) {
+					renderer->set_show_gbuffers(0);
+					renderer->set_show_depthbuffer(0);
+				}
 
+            }
+
+            
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();

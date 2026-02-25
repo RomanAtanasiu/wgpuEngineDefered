@@ -12,7 +12,8 @@
 #include "framework/parsers/parse_scene.h"
 #include "framework/ui/io.h"
 
-#include "shaders/mesh_forward.wgsl.gen.h"
+#include "shaders/mesh_deferred.wgsl.gen.h"
+
 
 #include "shaders/AABB_shader.wgsl.gen.h"
 
@@ -36,7 +37,7 @@ void Gizmo3D::initialize(const eGizmoOp& new_operation, const glm::vec3& positio
         material->set_priority(0);
         material->set_transparency_type(ALPHA_BLEND);
         material->set_color(glm::vec4(1.0f));
-        material->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, material));
+        material->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_deferred::source, shaders::mesh_deferred::path, shaders::mesh_deferred::libraries, material));
 
         free_hand_point_mesh = parse_mesh("data/meshes/sphere.obj");
         free_hand_point_mesh->set_surface_material_override(free_hand_point_mesh->get_surface(0), material);
@@ -70,7 +71,7 @@ void Gizmo3D::init_translation_meshes()
     material_x->set_type(MATERIAL_UNLIT);
     material_x->set_transparency_type(ALPHA_BLEND);
     material_x->set_color(colors::RED);
-    material_x->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, material_x));
+    material_x->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_deferred::source, shaders::mesh_deferred::path, shaders::mesh_deferred::libraries, material_x), true);
     arrow_mesh_x->set_surface_material_override(arrow_mesh_x->get_surface(0), material_x);
     arrow_mesh_x->set_surface_material_override(arrow_mesh_x->get_surface(1), material_x);
 
@@ -81,7 +82,7 @@ void Gizmo3D::init_translation_meshes()
     material_y->set_type(MATERIAL_UNLIT);
     material_y->set_transparency_type(ALPHA_BLEND);
     material_y->set_color(colors::GREEN);
-    material_y->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, material_y));
+    material_y->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_deferred::source, shaders::mesh_deferred::path, shaders::mesh_deferred::libraries, material_y),true);
     arrow_mesh_y->set_surface_material_override(arrow_mesh_y->get_surface(0), material_y);
     arrow_mesh_y->set_surface_material_override(arrow_mesh_y->get_surface(1), material_y);
 
@@ -92,7 +93,7 @@ void Gizmo3D::init_translation_meshes()
     material_z->set_type(MATERIAL_UNLIT);
     material_z->set_transparency_type(ALPHA_BLEND);
     material_z->set_color(colors::BLUE);
-    material_z->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, material_z));
+    material_z->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_deferred::source, shaders::mesh_deferred::path, shaders::mesh_deferred::libraries, material_z), true);
     arrow_mesh_z->set_surface_material_override(arrow_mesh_z->get_surface(0), material_z);
     arrow_mesh_z->set_surface_material_override(arrow_mesh_z->get_surface(1), material_z);
 }
@@ -108,7 +109,7 @@ void Gizmo3D::init_scale_meshes()
         material_x_sphere->set_transparency_type(ALPHA_BLEND);
         material_x_sphere->set_color(colors::RED);
         material_x_sphere->set_type(MATERIAL_UNLIT);
-        material_x_sphere->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, material_x_sphere));
+        material_x_sphere->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_deferred::source, shaders::mesh_deferred::path, shaders::mesh_deferred::libraries, material_x_sphere), true);
         scale_sphere_mesh_x->set_surface_material_override(scale_sphere_mesh_x->get_surface(0), material_x_sphere);
 
         scale_sphere_mesh_y = parse_mesh("data/meshes/sphere.obj");
@@ -118,7 +119,7 @@ void Gizmo3D::init_scale_meshes()
         material_y->set_transparency_type(ALPHA_BLEND);
         material_y->set_color(colors::GREEN);
         material_y->set_type(MATERIAL_UNLIT);
-        material_y->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, material_y));
+        material_y->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_deferred::source, shaders::mesh_deferred::path, shaders::mesh_deferred::libraries, material_y), true);
         scale_sphere_mesh_y->set_surface_material_override(scale_sphere_mesh_y->get_surface(0), material_y);
 
         scale_sphere_mesh_z = parse_mesh("data/meshes/sphere.obj");
@@ -128,7 +129,7 @@ void Gizmo3D::init_scale_meshes()
         material_z->set_transparency_type(ALPHA_BLEND);
         material_z->set_color(colors::BLUE);
         material_z->set_type(MATERIAL_UNLIT);
-        material_z->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, material_z));
+        material_z->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_deferred::source, shaders::mesh_deferred::path, shaders::mesh_deferred::libraries, material_z), true);
         scale_sphere_mesh_z->set_surface_material_override(scale_sphere_mesh_z->get_surface(0), material_z);
     }
 }
@@ -141,7 +142,7 @@ void Gizmo3D::init_rotation_meshes()
     material_x->set_priority(0);
     material_x->set_transparency_type(ALPHA_BLEND);
     material_x->set_color(colors::RED);
-    material_x->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, material_x));
+    material_x->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_deferred::source, shaders::mesh_deferred::path, shaders::mesh_deferred::libraries, material_x),true);
     wire_circle_mesh_x->set_surface_material_override(wire_circle_mesh_x->get_surface(0), material_x);
 
     wire_circle_mesh_y = parse_mesh("data/meshes/wired_circle.obj");
@@ -150,7 +151,7 @@ void Gizmo3D::init_rotation_meshes()
     material_y->set_priority(0);
     material_y->set_transparency_type(ALPHA_BLEND);
     material_y->set_color(colors::GREEN);
-    material_y->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, material_y));
+    material_y->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_deferred::source, shaders::mesh_deferred::path, shaders::mesh_deferred::libraries, material_y), true);
     wire_circle_mesh_y->set_surface_material_override(wire_circle_mesh_y->get_surface(0), material_y);
 
     wire_circle_mesh_z = parse_mesh("data/meshes/wired_circle.obj");
@@ -159,7 +160,7 @@ void Gizmo3D::init_rotation_meshes()
     material_z->set_priority(0);
     material_z->set_transparency_type(ALPHA_BLEND);
     material_z->set_color(colors::BLUE);
-    material_z->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, material_z));
+    material_z->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_deferred::source, shaders::mesh_deferred::path, shaders::mesh_deferred::libraries, material_z), true);
     wire_circle_mesh_z->set_surface_material_override(wire_circle_mesh_z->get_surface(0), material_z);
 }
 

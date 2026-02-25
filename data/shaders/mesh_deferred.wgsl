@@ -175,7 +175,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_facing: bool) -> Fr
 #ifdef ALBEDO_TEXTURE
     let albedo_uv : vec2f = get_albedo_uv(in.uv);
     let albedo_texture : vec4f = textureSample(albedo_texture, sampler_2d, albedo_uv);
-    albedo_color = albedo_texture.rgb * in.color.rgb;
+    albedo_color = pow(albedo_texture.rgb * in.color.rgb,vec3f(2.2f));
     alpha = albedo_texture.a * in.color.a;
 #else
     albedo_color = in.color.rgb;

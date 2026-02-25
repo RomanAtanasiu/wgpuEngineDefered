@@ -29,6 +29,7 @@
 #include "shaders/AABB_shader.wgsl.gen.h"
 #include "shaders/mesh_shadow.wgsl.gen.h"
 
+
 #include "framework/parsers/parse_scene.h"
 #include "framework/nodes/mesh_instance_3d.h"
 #include "framework/nodes/gs_node.h"
@@ -43,7 +44,7 @@
 #include "shaders/quad_mirror.wgsl.gen.h"
 #include "shaders/gaussian_splatting/gs_render.wgsl.gen.h"
 #include "shaders/gbuffer_lighting_pass.wgsl.gen.h"
-
+#include "shaders/gamma_pass.wgsl.gen.h"
 #include "glm/gtx/quaternion.hpp"
 
 #include "spdlog/spdlog.h"
@@ -196,6 +197,7 @@ int Renderer::post_initialize()
     quad_surface.create_quad(2.0f, 2.0f);
 
     init_gbuffers();
+	init_deferred_light_buffer();
 
     init_depth_buffers();
 
@@ -207,6 +209,7 @@ int Renderer::post_initialize()
     init_timestamp_queries();
 
     init_deferred_lightpass();
+	init_gamma_pass();
 
 #if defined(OPENXR_SUPPORT) && defined(USE_MIRROR_WINDOW)
     if (is_xr_available) {
@@ -302,6 +305,7 @@ void Renderer::clean()
     wgpuBindGroupRelease(render_camera_bind_group_2d);
     wgpuBindGroupRelease(shadow_camera_bind_group);
     wgpuBindGroupRelease(gbuffers_resolve_bindgroup);
+	wgpuBindGroupRelease(gbuffers_light_pass_camera_bind_group);
 
     camera_uniform.destroy();
     camera_2d_uniform.destroy();
@@ -332,11 +336,13 @@ void Renderer::clean()
     delete[] gbuffer_data.textures;
     delete[] gbuffer_data.texture_views;
     delete gbuffer_data.depth_texture;
+	delete light_buffer_data.texture;
     //delete selected_mesh_aabb;
 
     // TODO: WHAT HAPPENS WITH TEXTUREVIEW
 
     delete gbuffer_lighting_pass_shader;
+	delete gamma_pass_shader;
 
 #ifndef __EMSCRIPTEN__
     delete renderdoc_capture;
@@ -441,12 +447,14 @@ void Renderer::render()
         camera_data.view_projection = camera_3d->get_view_projection();
         camera_data.view = camera_3d->get_view();
         camera_data.projection = camera_3d->get_projection();
+		camera_data.inv_view_projection = glm::inverse(camera_3d->get_view_projection());
 
         wgpuQueueWriteBuffer(webgpu_context->device_queue, std::get<WGPUBuffer>(camera_uniform.data), 0, &camera_data, sizeof(sCameraData));
 
         render_camera_in_gbuffers(render_lists, screen_surface_texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "deferred_render_pass");
 
-        resolve_gbuffers(screen_surface_texture_view, eye_depth_textures[EYE_LEFT].get_texture(), eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "deferred_light_pass");
+        resolve_gbuffers(light_buffer_data.texture_view, eye_depth_textures[EYE_LEFT].get_texture(), eye_depth_texture_view[EYE_LEFT], render_instances_data, gbuffers_light_pass_camera_bind_group, true, "deferred_light_pass");
+		render_gamma_correction(screen_surface_texture_view, "gamma correction pass");
         //render_camera(render_lists, screen_surface_texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "forward_render");
     }
 #ifdef XR_SUPPORT
@@ -638,6 +646,7 @@ void Renderer::render()
 
 void Renderer::render_camera_in_gbuffers(const std::vector<std::vector<sRenderData>>& render_lists, WGPUTextureView framebuffer_view, WGPUTextureView depth_view,
     const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string& pass_name, uint32_t eye_idx, uint32_t camera_offset) {
+
     WGPURenderPassColorAttachment gbuffer_attachments[MAX_GBUFFER_COUNT];
 
     assert(webgpu_context->gbuffer_format.GBUFFER_COUNT <= MAX_GBUFFER_COUNT && "Verify that we are not using too many gbuffers");
@@ -745,10 +754,12 @@ void Renderer::resolve_gbuffers(WGPUTextureView framebuffer_view, WGPUTexture de
 #ifndef NDEBUG
         webgpu_context->push_debug_group(render_pass, { "Lighting pass", WGPU_STRLEN });
 #endif
-        light_pass_deferred_pipeline.set(render_pass);
+		light_pass_deferred_pipeline.set(render_pass);
 
         wgpuRenderPassEncoderSetBindGroup(render_pass, 0, gbuffers_resolve_bindgroup, 0, nullptr);
-        wgpuRenderPassEncoderSetBindGroup(render_pass, 1, camera_bind_group, 1, &camera_buffer_stride);
+		uint32_t zero_offset = 0;
+		wgpuRenderPassEncoderSetBindGroup(render_pass, 1, camera_bind_group, 1, &zero_offset);
+		//wgpuRenderPassEncoderSetBindGroup(render_pass, 1, camera_bind_group, 1, &camera_buffer_stride);
         wgpuRenderPassEncoderSetBindGroup(render_pass, 2, lighting_bind_group, 0, nullptr);
 
 
@@ -773,6 +784,64 @@ void Renderer::resolve_gbuffers(WGPUTextureView framebuffer_view, WGPUTexture de
     webgpu_context->copy_texture_to_texture(gbuffer_data.depth_texture->get_texture(), depth_texture, 0, 0, gbuffer_data.depth_texture->get_size(), {0,0,0}, {0,0,0}, global_command_encoder);
 
     wgpuRenderPassEncoderRelease(render_pass);
+}
+
+
+void Renderer::render_gamma_correction(WGPUTextureView framebuffer_view,
+    const std::string& pass_name) {
+	WGPURenderPassColorAttachment render_attachment = {};
+	render_attachment.view = framebuffer_view;
+	render_attachment.loadOp = WGPULoadOp_Clear;
+	render_attachment.storeOp = WGPUStoreOp_Store;
+	render_attachment.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
+	render_attachment.clearValue = WGPUColor{ 0, 0, 0, clear_color.a };
+
+	WGPURenderPassDescriptor render_pass_descr = {};
+	render_pass_descr.colorAttachmentCount = 1u;
+	render_pass_descr.colorAttachments = &render_attachment;
+	render_pass_descr.depthStencilAttachment = nullptr;
+	render_pass_descr.label = { pass_name.c_str(), pass_name.length() };
+
+#ifndef __EMSCRIPTEN__
+	std::vector<WGPUPassTimestampWrites> timestampWrites(1);
+	timestampWrites[0].beginningOfPassWriteIndex = timestamp(global_command_encoder, (pass_name + "_pre_render").c_str());
+	timestampWrites[0].querySet = timestamp_query_set;
+	timestampWrites[0].endOfPassWriteIndex = timestamp(global_command_encoder, (pass_name + "_render").c_str());
+
+	render_pass_descr.timestampWrites = timestampWrites.data();
+#endif
+	// Create & fill the render pass (encoder)
+	WGPURenderPassEncoder render_pass = wgpuCommandEncoderBeginRenderPass(global_command_encoder, &render_pass_descr);
+
+#ifndef NDEBUG
+	webgpu_context->push_debug_group(render_pass, { pass_name.c_str(), WGPU_STRLEN });
+#endif
+
+	{
+#ifndef NDEBUG
+		webgpu_context->push_debug_group(render_pass, { "Gamma correction pass", WGPU_STRLEN });
+#endif
+		gamma_correction_pipeline.set(render_pass);
+
+		wgpuRenderPassEncoderSetBindGroup(render_pass, 0, single_texture_bindgroup, 0, nullptr);
+
+		// Set vertex buffer while encoding the render pass
+		wgpuRenderPassEncoderSetVertexBuffer(render_pass, 0, quad_surface.get_vertex_buffer(), 0, quad_surface.get_vertices_byte_size());
+		wgpuRenderPassEncoderSetVertexBuffer(render_pass, 1, quad_surface.get_vertex_data_buffer(), 0, quad_surface.get_interleaved_data_byte_size());
+
+		wgpuRenderPassEncoderDraw(render_pass, quad_surface.get_vertex_count(), 1, 0, 0);
+
+#ifndef NDEBUG
+		webgpu_context->pop_debug_group(render_pass);
+#endif
+	}
+
+#ifndef NDEBUG
+	webgpu_context->pop_debug_group(render_pass);
+#endif
+
+	wgpuRenderPassEncoderEnd(render_pass);
+	wgpuRenderPassEncoderRelease(render_pass);
 }
 
 void Renderer::render_camera(const std::vector<std::vector<sRenderData>>& render_lists, WGPUTextureView framebuffer_view, WGPUTextureView depth_view,
@@ -972,19 +1041,59 @@ void Renderer::init_gbuffers() {
         1u,
         nullptr);
     gbuffer_data.depth_texture_view = gbuffer_data.depth_texture->get_view();
+
 }
 
+void Renderer::init_deferred_light_buffer() {
+	light_buffer_data.texture = new Texture();
+	WGPUTextureUsage;
+	light_buffer_data.texture->create(
+		WGPUTextureDimension_2D,
+		WGPUTextureFormat_RGBA32Float,
+		{ webgpu_context->gbuffer_format.width, webgpu_context->gbuffer_format.height, 1u },
+		WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding,
+        1u, 1u, nullptr
+    );
+
+    light_buffer_data.texture_view = light_buffer_data.texture->get_view();
+} 
+
+void Renderer::init_gamma_pass() {
+    //create pipeline
+    {
+	    WGPUColorTargetState color_target = {};
+	    color_target.format = webgpu_context->swapchain_format;
+	    color_target.blend = nullptr;
+	    color_target.writeMask = WGPUColorWriteMask_All;
+
+	    gamma_pass_shader = RendererStorage::get_shader_from_source(shaders::gamma_pass::source, shaders::gamma_pass::path, shaders::gamma_pass::libraries);
+		gamma_correction_pipeline.create_render(gamma_pass_shader, color_target, { .use_depth = false, .allow_msaa = false });
+	}
+	//create bindgroup
+    {
+		Uniform texture_uniform;
+		texture_uniform.data = light_buffer_data.texture_view;
+		texture_uniform.binding = 0;
+		std::vector<Uniform *> uniforms;
+		uniforms.push_back(&texture_uniform);
+
+		single_texture_bindgroup = webgpu_context->create_bind_group(uniforms, gamma_pass_shader, 0); 
+    }
+
+}
 
 void Renderer::init_deferred_lightpass() {
     // Create lighting pass pipeline
     {
         WGPUColorTargetState color_target = {};
-        color_target.format = webgpu_context->swapchain_format;
+        //lighting_pass format
+		color_target.format = WGPUTextureFormat_RGBA32Float;
         color_target.blend = nullptr;
         color_target.writeMask = WGPUColorWriteMask_All;
+		std::vector<Uniform *> uniforms;
 
         gbuffer_lighting_pass_shader = RendererStorage::get_shader_from_source(shaders::gbuffer_lighting_pass::source, shaders::gbuffer_lighting_pass::path, shaders::gbuffer_lighting_pass::libraries);
-        light_pass_deferred_pipeline.create_render(gbuffer_lighting_pass_shader, color_target, { .use_depth = false, .allow_msaa = false });
+		light_pass_deferred_pipeline.create_render(gbuffer_lighting_pass_shader, color_target, { .use_depth = false, .allow_msaa = false });
     }
     // Create bindgroup
     {
@@ -1000,7 +1109,8 @@ void Renderer::init_deferred_lightpass() {
         }
         // For gbuffer depth attachment
         uniform_list[uniform_count].binding = uniform_count;
-        uniform_list[uniform_count].data = gbuffer_data.depth_texture_view;
+        uniform_list[uniform_count].data = gbuffer_data.depth_texture_view; 
+
 
         uniforms.push_back(&uniform_list[uniform_count++]);
 
@@ -1010,6 +1120,11 @@ void Renderer::init_deferred_lightpass() {
         uniforms.push_back(&gbuffer_sampler_uniform);
 
         gbuffers_resolve_bindgroup = webgpu_context->create_bind_group(uniforms, gbuffer_lighting_pass_shader, 0u);
+    }
+    //create gbuffer camera bindgroup
+    {
+		std::vector<Uniform *> cam_uniforms = { &camera_uniform };
+		gbuffers_light_pass_camera_bind_group = webgpu_context->create_bind_group(cam_uniforms, gbuffer_lighting_pass_shader, 1u);
     }
 }
 
