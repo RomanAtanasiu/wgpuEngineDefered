@@ -1,4 +1,5 @@
 #include mesh_includes.wgsl
+#include tonemappers.wgsl
 
 @group(0) @binding(0) var gbuffer_albedo_metallic: texture_2d<f32>;
 @group(0) @binding(1) var gbuffer_normal_roughness: texture_2d<f32>;
@@ -52,9 +53,7 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
     //let uv = vec2f(1.0/screen_dims.x,1/.0/screen_dims.y/1.0);
 
     var depth = f32(textureLoad(gbuffer_depth_buffer, vec2<i32>(in.uv * vec2<f32>(screen_dims)), 0));
-    if (depth == 0.0){
-        discard;
-    }
+
 
     var uv_clip = vec2f(in.uv.x * 2.0 - 1.0, 1.0 - 2.0 * in.uv.y);
     var clip_coords = vec4f(
@@ -99,10 +98,11 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
     if(camera_data.show_depthbuffer == 0 && camera_data.show_gbuffers == 0){
         var final_color : vec3f = vec3f(0.0);//vec3f(m.albedo);
 
-        final_color += get_indirect_light(&m);
+        final_color = get_indirect_light(&m);
+        //var final_color2 = get_direct_light(&m);
         final_color += get_direct_light(&m);
-
-
+        final_color *= camera_data.exposure;
+        final_color = tonemap_khronos_pbr_neutral(final_color);
         out.color = vec4f(final_color, 1.0);
     }
     else if (camera_data.show_gbuffers == 1){
