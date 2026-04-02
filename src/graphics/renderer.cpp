@@ -43,9 +43,12 @@
 
 #include "shaders/quad_mirror.wgsl.gen.h"
 #include "shaders/gaussian_splatting/gs_render.wgsl.gen.h"
+#include "glm/gtx/quaternion.hpp"
+
+
 #include "shaders/gbuffer_lighting_pass.wgsl.gen.h"
 #include "shaders/gamma_pass.wgsl.gen.h"
-#include "glm/gtx/quaternion.hpp"
+#include "shaders/blur_compute.wgsl.gen.h"
 
 #include "spdlog/spdlog.h"
 
@@ -210,6 +213,8 @@ int Renderer::post_initialize()
 
     init_deferred_lightpass();
 	init_gamma_pass();
+
+    init_compute_post_process();
 
 #if defined(OPENXR_SUPPORT) && defined(USE_MIRROR_WINDOW)
     if (is_xr_available) {
@@ -844,6 +849,25 @@ void Renderer::render_gamma_correction(WGPUTextureView framebuffer_view,
 	wgpuRenderPassEncoderRelease(render_pass);
 }
 
+
+void Renderer::render_post_processing(Pipeline pipeline, WGPUBindGroup textures_bindgroup, std::vector<WGPUBindGroup>&, const std::string& pass_name) {
+	if (pipeline.is_compute_pipeline()) {
+#ifndef NDEBUG
+
+        WGPUComputePassDescriptor compute_pass_descriptor = {};
+       	WGPUComputePassEncoder compute_pass = wgpuCommandEncoderBeginComputePass(global_command_encoder, &compute_pass_descriptor);
+
+		webgpu_context->push_debug_group(compute_pass, { pass_name.c_str(), WGPU_STRLEN });
+        {
+
+            pipeline.set(compute_pass);
+
+        }
+#endif
+    }
+
+}
+
 void Renderer::render_camera(const std::vector<std::vector<sRenderData>>& render_lists, WGPUTextureView framebuffer_view, WGPUTextureView depth_view,
     const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string& pass_name, uint32_t eye_idx, uint32_t camera_offset)
 {
@@ -1079,6 +1103,57 @@ void Renderer::init_gamma_pass() {
 
 		single_texture_bindgroup = webgpu_context->create_bind_group(uniforms, gamma_pass_shader, 0); 
     }
+
+}
+
+
+void Renderer::init_post_processing_textures() {
+	BufferA.texture = new Texture();
+	BufferA.texture->create(
+			WGPUTextureDimension_2D,
+			WGPUTextureFormat_RGBA32Float,
+			{ webgpu_context->gbuffer_format.width, webgpu_context->gbuffer_format.height, 1u },
+			WGPUTextureUsage_CopySrc | WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding,
+			1u, 1u, nullptr);
+	BufferA.texture_view = BufferA.texture->get_view();
+
+
+    BufferB.texture = new Texture();
+	BufferB.texture->create(
+			WGPUTextureDimension_2D,
+			WGPUTextureFormat_RGBA32Float,
+			{ webgpu_context->gbuffer_format.width, webgpu_context->gbuffer_format.height, 1u },
+			WGPUTextureUsage_CopySrc | WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding,
+			1u, 1u, nullptr);
+	BufferB.texture_view = BufferB.texture->get_view();
+
+}
+
+void Renderer::init_compute_post_process() {
+	//create pipeline
+    {
+        
+		blur_shader = RendererStorage::get_shader_from_source(shaders::blur_compute::source, shaders::blur_compute::path, shaders::blur_compute::libraries);
+		std::vector<WGPUConstantEntry> constants;
+		compute_post_process_pass_pipeline.create_compute(blur_shader, "blur compute", constants);
+
+    }
+
+    {
+		Uniform texture_uniformA;
+		texture_uniformA.data = BufferA.texture_view;
+		texture_uniformA.binding = 0;
+		std::vector<Uniform *> uniforms;
+		uniforms.push_back(&texture_uniformA);
+
+        Uniform texture_uniformB;
+		texture_uniformB.data = BufferB.texture_view;
+		texture_uniformB.binding = 1;
+		std::vector<Uniform *> uniforms;
+		uniforms.push_back(&texture_uniformA);
+
+		post_processingAB = webgpu_context->create_bind_group(uniforms, blur_shader, 0);
+	}
 
 }
 

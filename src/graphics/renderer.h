@@ -114,16 +114,32 @@ protected:
 		WGPUTextureView texture_view = nullptr;
 	} light_buffer_data;
 
+    struct sBufferPostProcess{
+		Texture *texture = nullptr;
+		WGPUTextureView texture_view = nullptr;
+    };
+	sBufferPostProcess BufferA;
+	sBufferPostProcess BufferB;
+	bool post_processingAB = true;
+
+    WGPUBindGroup post_processingAB = nullptr;
+	WGPUBindGroup post_processingBA = nullptr;
+
     WGPUBindGroup gbuffers_resolve_bindgroup = nullptr;
 	WGPUBindGroup single_texture_bindgroup = nullptr;
 
+    Shader* black_and_white_shader = nullptr;
+	Shader* blur_shader = nullptr;
     Shader* gbuffer_lighting_pass_shader = nullptr;
-	Shader *gamma_pass_shader = nullptr;
+	Shader* gamma_pass_shader = nullptr;
 
     Pipeline light_pass_deferred_pipeline;
 	Pipeline gamma_correction_pipeline;
+	Pipeline compute_post_process_pass_pipeline;
 
     Uniform gbuffer_sampler_uniform;
+
+    void render_post_processing(Pipeline pipeline, WGPUBindGroup textures_bindgroup, std::vector<WGPUBindGroup> &, const std::string &pass_name = "");
 
 #ifndef __EMSCRIPTEN__
     RenderdocCapture* renderdoc_capture;
@@ -318,7 +334,9 @@ public:
     void init_gbuffers();
 	void init_deferred_light_buffer();
 	void init_gamma_pass();
+	void init_compute_post_process();
     void init_deferred_lightpass();
+	void init_post_processing_textures();
     void init_depth_buffers();
     void init_multisample_textures();
     void init_timestamp_queries();
