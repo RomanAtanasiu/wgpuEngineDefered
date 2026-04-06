@@ -212,9 +212,11 @@ int Renderer::post_initialize()
     init_timestamp_queries();
 
     init_deferred_lightpass();
+	init_post_processing_textures();
+	init_compute_post_process(shaders::blur_compute::source, shaders::blur_compute::path, shaders::blur_compute::libraries, "box_blur");
 	init_gamma_pass();
 
-    init_compute_post_process();
+
 
 #if defined(OPENXR_SUPPORT) && defined(USE_MIRROR_WINDOW)
     if (is_xr_available) {
@@ -459,6 +461,14 @@ void Renderer::render()
         render_camera_in_gbuffers(render_lists, screen_surface_texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "deferred_render_pass");
 
         resolve_gbuffers(light_buffer_data.texture_view, eye_depth_textures[EYE_LEFT].get_texture(), eye_depth_texture_view[EYE_LEFT], render_instances_data, gbuffers_light_pass_camera_bind_group, true, "deferred_light_pass");
+
+        //to do, copy light buffer to bufferA
+        for (Pipeline pipeline : compute_post_process_pass_pipeline) {
+			std::vector<WGPUBindGroup> bind_groups = {};
+			render_post_processing(pipeline, bind_groups, "pass");
+        }
+        
+        
 		render_gamma_correction(screen_surface_texture_view, "gamma correction pass");
         //render_camera(render_lists, screen_surface_texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "forward_render");
     }
@@ -850,21 +860,35 @@ void Renderer::render_gamma_correction(WGPUTextureView framebuffer_view,
 }
 
 
-void Renderer::render_post_processing(Pipeline pipeline, WGPUBindGroup textures_bindgroup, std::vector<WGPUBindGroup>&, const std::string& pass_name) {
+void Renderer::render_post_processing(Pipeline pipeline, std::vector<WGPUBindGroup> extras, const std::string& pass_name) {
 	if (pipeline.is_compute_pipeline()) {
-#ifndef NDEBUG
 
         WGPUComputePassDescriptor compute_pass_descriptor = {};
        	WGPUComputePassEncoder compute_pass = wgpuCommandEncoderBeginComputePass(global_command_encoder, &compute_pass_descriptor);
-
-		webgpu_context->push_debug_group(compute_pass, { pass_name.c_str(), WGPU_STRLEN });
+    #ifndef NDEBUG
+		    webgpu_context->push_debug_group(compute_pass, { pass_name.c_str(), WGPU_STRLEN });
+    #endif
         {
 
             pipeline.set(compute_pass);
 
+            WGPUBindGroup temporal = post_processing_bool ? post_processingAB: post_processingBA;
+
+            wgpuComputePassEncoderSetBindGroup(compute_pass, 0, temporal, 0, nullptr);
+			for (int i = 0; i < extras.size();i++) {
+                //for now, dynamic offset is alays 0
+				wgpuComputePassEncoderSetBindGroup(compute_pass, i+1, extras[i], 0, nullptr);
+            }
+			wgpuComputePassEncoderDispatchWorkgroups(compute_pass, webgpu_context->gbuffer_format.width / 8, webgpu_context->gbuffer_format.height / 8, 1);
         }
-#endif
+    #ifndef NDEBUG
+		    webgpu_context->pop_debug_group(compute_pass);
+    #endif
+			wgpuComputePassEncoderEnd(compute_pass);
+			wgpuComputePassEncoderRelease(compute_pass);
+			post_processing_bool = !post_processing_bool;
     }
+	
 
 }
 
@@ -1135,16 +1159,15 @@ void Renderer::init_compute_post_process() {
         
 		blur_shader = RendererStorage::get_shader_from_source(shaders::blur_compute::source, shaders::blur_compute::path, shaders::blur_compute::libraries);
 		std::vector<WGPUConstantEntry> constants;
-		compute_post_process_pass_pipeline.create_compute(blur_shader, "blur compute", constants);
+		blur_process_pass_pipeline.create_compute(blur_shader, "blur compute", constants);
 
     }
 
     {
+		std::vector<Uniform *> uniforms;
 		Uniform texture_uniformA;
 		texture_uniformA.data = BufferA.texture_view;
 		texture_uniformA.binding = 0;
-		std::vector<Uniform *> uniforms;
-		uniforms.push_back(&texture_uniformA);
 
         Uniform texture_uniformB;
 		texture_uniformB.data = BufferB.texture_view;
@@ -1153,6 +1176,62 @@ void Renderer::init_compute_post_process() {
 		uniforms.push_back(&texture_uniformA);
 
 		post_processingAB = webgpu_context->create_bind_group(uniforms, blur_shader, 0);
+
+        uniforms.clear();
+        Uniform second_texture_uniformA;
+		second_texture_uniformA.data = texture_uniformA.data;
+		second_texture_uniformA.binding = 1;
+
+
+        Uniform second_texture_uniformB;
+		second_texture_uniformB.data = texture_uniformB.data;
+		second_texture_uniformA.binding = 0;
+
+		post_processingAB = webgpu_context->create_bind_group(uniforms, blur_shader, 0);
+	}
+
+}
+
+void Renderer::init_compute_post_process(const char *source, const std::string &name, const std::vector<std::string> &libraries, const std::string &pass_name) {
+	{
+		
+		shaders_post_processing[num_declared_post_process_passes] =
+            RendererStorage::get_shader_from_source(source, name, libraries);
+		std::vector<WGPUConstantEntry> constants;
+		compute_post_process_pass_pipeline[num_declared_post_process_passes].create_compute(shaders_post_processing[num_declared_post_process_passes], pass_name, constants);
+	}
+
+	{
+		std::vector<Uniform *> uniforms;
+		Uniform texture_uniformA;
+		texture_uniformA.data = BufferA.texture_view;
+		texture_uniformA.binding = 0;
+
+		Uniform texture_uniformB;
+		texture_uniformB.data = BufferB.texture_view;
+		texture_uniformB.binding = 1;
+		std::vector<Uniform *> uniforms;
+		uniforms.push_back(&texture_uniformA);
+		uniforms.push_back(&texture_uniformB);
+
+
+		post_processingAB = webgpu_context->create_bind_group(uniforms, shaders_post_processing[num_declared_post_process_passes], 0);
+
+
+		uniforms.clear();
+		Uniform second_texture_uniformA;
+		second_texture_uniformA.data = texture_uniformA.data;
+		second_texture_uniformA.binding = 1;
+
+		Uniform second_texture_uniformB;
+		second_texture_uniformB.data = texture_uniformB.data;
+		second_texture_uniformA.binding = 0;
+
+		uniforms.push_back(&second_texture_uniformB);
+		uniforms.push_back(&second_texture_uniformA);
+
+		post_processingBA = webgpu_context->create_bind_group(uniforms, shaders_post_processing[num_declared_post_process_passes], 0);
+		num_declared_post_process_passes++;
 	}
 
 }

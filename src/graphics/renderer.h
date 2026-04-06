@@ -18,6 +18,8 @@
 
 #define MAX_LIGHTS 32u
 #define SHADOW_MAP_SIZE 1024
+#define MAX_POST_PROCESS_PASS 3u
+
 
 class Camera;
 class Texture;
@@ -120,7 +122,7 @@ protected:
     };
 	sBufferPostProcess BufferA;
 	sBufferPostProcess BufferB;
-	bool post_processingAB = true;
+	bool post_processing_bool = true;
 
     WGPUBindGroup post_processingAB = nullptr;
 	WGPUBindGroup post_processingBA = nullptr;
@@ -130,16 +132,18 @@ protected:
 
     Shader* black_and_white_shader = nullptr;
 	Shader* blur_shader = nullptr;
-    Shader* gbuffer_lighting_pass_shader = nullptr;
+	Shader *shaders_post_processing[MAX_POST_PROCESS_PASS] = { nullptr };
+	int num_declared_post_process_passes = 0;
+	Shader *gbuffer_lighting_pass_shader = nullptr;
 	Shader* gamma_pass_shader = nullptr;
 
     Pipeline light_pass_deferred_pipeline;
 	Pipeline gamma_correction_pipeline;
-	Pipeline compute_post_process_pass_pipeline;
-
+	Pipeline blur_process_pass_pipeline;
+	Pipeline compute_post_process_pass_pipeline[MAX_POST_PROCESS_PASS];
     Uniform gbuffer_sampler_uniform;
 
-    void render_post_processing(Pipeline pipeline, WGPUBindGroup textures_bindgroup, std::vector<WGPUBindGroup> &, const std::string &pass_name = "");
+    void render_post_processing(Pipeline pipeline, std::vector<WGPUBindGroup> extras, const std::string &pass_name = "");
 
 #ifndef __EMSCRIPTEN__
     RenderdocCapture* renderdoc_capture;
@@ -335,6 +339,8 @@ public:
 	void init_deferred_light_buffer();
 	void init_gamma_pass();
 	void init_compute_post_process();
+	void init_compute_post_process(const char *source, const std::string &name,
+			const std::vector<std::string> &libraries, const std::string &pass_name);
     void init_deferred_lightpass();
 	void init_post_processing_textures();
     void init_depth_buffers();
