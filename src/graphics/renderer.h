@@ -129,6 +129,8 @@ protected:
 
     WGPUBindGroup gbuffers_resolve_bindgroup = nullptr;
 	WGPUBindGroup single_texture_bindgroup = nullptr;
+	WGPUBindGroup post_process_a_to_gamma_bindgroup = nullptr;
+	WGPUBindGroup post_process_b_to_gamma_bindgroup = nullptr;
 
     Shader* black_and_white_shader = nullptr;
 	Shader* blur_shader = nullptr;
@@ -143,7 +145,7 @@ protected:
 	Pipeline compute_post_process_pass_pipeline[MAX_POST_PROCESS_PASS];
     Uniform gbuffer_sampler_uniform;
 
-    void render_post_processing(Pipeline pipeline, std::vector<WGPUBindGroup> extras, const std::string &pass_name = "");
+    void render_post_processing(Pipeline &pipeline, std::vector<WGPUBindGroup> extras, const std::string &pass_name = "");
 
 #ifndef __EMSCRIPTEN__
     RenderdocCapture* renderdoc_capture;

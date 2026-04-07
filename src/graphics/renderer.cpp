@@ -313,6 +313,11 @@ void Renderer::clean()
     wgpuBindGroupRelease(shadow_camera_bind_group);
     wgpuBindGroupRelease(gbuffers_resolve_bindgroup);
 	wgpuBindGroupRelease(gbuffers_light_pass_camera_bind_group);
+	wgpuBindGroupRelease(single_texture_bindgroup);
+	wgpuBindGroupRelease(post_processingAB);
+	wgpuBindGroupRelease(post_processingBA);
+	wgpuBindGroupRelease(post_process_a_to_gamma_bindgroup);
+	wgpuBindGroupRelease(post_process_b_to_gamma_bindgroup);
 
     camera_uniform.destroy();
     camera_2d_uniform.destroy();
@@ -344,12 +349,15 @@ void Renderer::clean()
     delete[] gbuffer_data.texture_views;
     delete gbuffer_data.depth_texture;
 	delete light_buffer_data.texture;
+	delete BufferA.texture;
+	delete BufferB.texture;
     //delete selected_mesh_aabb;
 
     // TODO: WHAT HAPPENS WITH TEXTUREVIEW
 
     delete gbuffer_lighting_pass_shader;
 	delete gamma_pass_shader;
+	delete[] shaders_post_processing;
 
 #ifndef __EMSCRIPTEN__
     delete renderdoc_capture;
@@ -463,10 +471,18 @@ void Renderer::render()
         resolve_gbuffers(light_buffer_data.texture_view, eye_depth_textures[EYE_LEFT].get_texture(), eye_depth_texture_view[EYE_LEFT], render_instances_data, gbuffers_light_pass_camera_bind_group, true, "deferred_light_pass");
 
         //to do, copy light buffer to bufferA
+		webgpu_context->copy_texture_to_texture(light_buffer_data.texture->get_texture(), BufferA.texture->get_texture(), 0, 0, light_buffer_data.texture->get_size(), { 0, 0, 0 }, { 0, 0, 0 }, global_command_encoder);
+
+
+        for (int i = 0; i < num_declared_post_process_passes; i++) {
+			std::vector<WGPUBindGroup> bind_groups = {};
+			render_post_processing(compute_post_process_pass_pipeline[i], bind_groups, "pass");
+        }
+		/*
         for (Pipeline pipeline : compute_post_process_pass_pipeline) {
 			std::vector<WGPUBindGroup> bind_groups = {};
 			render_post_processing(pipeline, bind_groups, "pass");
-        }
+        }*/
         
         
 		render_gamma_correction(screen_surface_texture_view, "gamma correction pass");
@@ -796,7 +812,7 @@ void Renderer::resolve_gbuffers(WGPUTextureView framebuffer_view, WGPUTexture de
     wgpuRenderPassEncoderEnd(render_pass);
 
     // COPY DEPTH FROM GBUFFER TO THE SWAPCHAIN'S DEPTH
-    webgpu_context->copy_texture_to_texture(gbuffer_data.depth_texture->get_texture(), depth_texture, 0, 0, gbuffer_data.depth_texture->get_size(), {0,0,0}, {0,0,0}, global_command_encoder);
+	webgpu_context->copy_texture_to_texture(gbuffer_data.depth_texture->get_texture(), depth_texture, 0, 0, gbuffer_data.depth_texture->get_size(), { 0, 0, 0 }, { 0, 0, 0 }, global_command_encoder);
 
     wgpuRenderPassEncoderRelease(render_pass);
 }
@@ -838,7 +854,11 @@ void Renderer::render_gamma_correction(WGPUTextureView framebuffer_view,
 #endif
 		gamma_correction_pipeline.set(render_pass);
 
-		wgpuRenderPassEncoderSetBindGroup(render_pass, 0, single_texture_bindgroup, 0, nullptr);
+	
+
+        WGPUBindGroup temporal = post_processing_bool ? post_process_a_to_gamma_bindgroup : post_process_b_to_gamma_bindgroup;
+
+        wgpuRenderPassEncoderSetBindGroup(render_pass, 0, temporal, 0, nullptr);
 
 		// Set vertex buffer while encoding the render pass
 		wgpuRenderPassEncoderSetVertexBuffer(render_pass, 0, quad_surface.get_vertex_buffer(), 0, quad_surface.get_vertices_byte_size());
@@ -860,7 +880,7 @@ void Renderer::render_gamma_correction(WGPUTextureView framebuffer_view,
 }
 
 
-void Renderer::render_post_processing(Pipeline pipeline, std::vector<WGPUBindGroup> extras, const std::string& pass_name) {
+void Renderer::render_post_processing(Pipeline &pipeline, std::vector<WGPUBindGroup> extras, const std::string &pass_name) {
 	if (pipeline.is_compute_pipeline()) {
 
         WGPUComputePassDescriptor compute_pass_descriptor = {};
@@ -1099,7 +1119,7 @@ void Renderer::init_deferred_light_buffer() {
 		WGPUTextureDimension_2D,
 		WGPUTextureFormat_RGBA32Float,
 		{ webgpu_context->gbuffer_format.width, webgpu_context->gbuffer_format.height, 1u },
-		WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding,
+		WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding | WGPUTextureUsage_CopySrc,
         1u, 1u, nullptr
     );
 
@@ -1120,13 +1140,22 @@ void Renderer::init_gamma_pass() {
 	//create bindgroup
     {
 		Uniform texture_uniform;
-		texture_uniform.data = light_buffer_data.texture_view;
+		texture_uniform.data = BufferA.texture_view;
 		texture_uniform.binding = 0;
 		std::vector<Uniform *> uniforms;
 		uniforms.push_back(&texture_uniform);
 
-		single_texture_bindgroup = webgpu_context->create_bind_group(uniforms, gamma_pass_shader, 0); 
+		post_process_a_to_gamma_bindgroup = webgpu_context->create_bind_group(uniforms, gamma_pass_shader, 0); 
     }
+	{
+		Uniform texture_uniform;
+		texture_uniform.data = BufferB.texture_view;
+		texture_uniform.binding = 0;
+		std::vector<Uniform *> uniforms;
+		uniforms.push_back(&texture_uniform);
+
+		post_process_b_to_gamma_bindgroup = webgpu_context->create_bind_group(uniforms, gamma_pass_shader, 0);
+	}
 
 }
 
@@ -1137,7 +1166,7 @@ void Renderer::init_post_processing_textures() {
 			WGPUTextureDimension_2D,
 			WGPUTextureFormat_RGBA32Float,
 			{ webgpu_context->gbuffer_format.width, webgpu_context->gbuffer_format.height, 1u },
-			WGPUTextureUsage_CopySrc | WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding,
+			WGPUTextureUsage_CopySrc | WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding |WGPUTextureUsage_RenderAttachment,
 			1u, 1u, nullptr);
 	BufferA.texture_view = BufferA.texture->get_view();
 
@@ -1147,7 +1176,7 @@ void Renderer::init_post_processing_textures() {
 			WGPUTextureDimension_2D,
 			WGPUTextureFormat_RGBA32Float,
 			{ webgpu_context->gbuffer_format.width, webgpu_context->gbuffer_format.height, 1u },
-			WGPUTextureUsage_CopySrc | WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding,
+			WGPUTextureUsage_CopySrc | WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding | WGPUTextureUsage_RenderAttachment,
 			1u, 1u, nullptr);
 	BufferB.texture_view = BufferB.texture->get_view();
 
@@ -1172,8 +1201,8 @@ void Renderer::init_compute_post_process() {
         Uniform texture_uniformB;
 		texture_uniformB.data = BufferB.texture_view;
 		texture_uniformB.binding = 1;
-		std::vector<Uniform *> uniforms;
 		uniforms.push_back(&texture_uniformA);
+		uniforms.push_back(&texture_uniformB);
 
 		post_processingAB = webgpu_context->create_bind_group(uniforms, blur_shader, 0);
 
@@ -1185,9 +1214,12 @@ void Renderer::init_compute_post_process() {
 
         Uniform second_texture_uniformB;
 		second_texture_uniformB.data = texture_uniformB.data;
-		second_texture_uniformA.binding = 0;
+		second_texture_uniformB.binding = 0;
 
-		post_processingAB = webgpu_context->create_bind_group(uniforms, blur_shader, 0);
+        uniforms.push_back(&second_texture_uniformA);
+		uniforms.push_back(&second_texture_uniformB);
+
+		post_processingBA = webgpu_context->create_bind_group(uniforms, blur_shader, 0);
 	}
 
 }
@@ -1210,7 +1242,6 @@ void Renderer::init_compute_post_process(const char *source, const std::string &
 		Uniform texture_uniformB;
 		texture_uniformB.data = BufferB.texture_view;
 		texture_uniformB.binding = 1;
-		std::vector<Uniform *> uniforms;
 		uniforms.push_back(&texture_uniformA);
 		uniforms.push_back(&texture_uniformB);
 
@@ -1225,7 +1256,7 @@ void Renderer::init_compute_post_process(const char *source, const std::string &
 
 		Uniform second_texture_uniformB;
 		second_texture_uniformB.data = texture_uniformB.data;
-		second_texture_uniformA.binding = 0;
+		second_texture_uniformB.binding = 0;
 
 		uniforms.push_back(&second_texture_uniformB);
 		uniforms.push_back(&second_texture_uniformA);

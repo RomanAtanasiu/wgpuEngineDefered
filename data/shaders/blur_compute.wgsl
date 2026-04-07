@@ -2,12 +2,12 @@
 
 @group(0) @binding(0) var in_texture: texture_2d<f32>;
 //check format
-@group(0) @binding(1) var outTexture: texture_storage_2d<rgba8unorm,write>;
-@group(1) @binding(0) var<uniform> blur_level: i32;
+@group(0) @binding(1) var outTexture: texture_storage_2d<rgba32float,write>;
+//@group(1) @binding(0) var<uniform> blur_level: i32;
 
 @compute @workgroup_size(8, 8)
-fn computeMipMap(@builtin(global_invocation_id) id: vec3<u32>) {
-
+fn box_blur(@builtin(global_invocation_id) id: vec3<u32>) {
+    let blur_level: i32 = 5;
     let size = textureDimensions(in_texture);
 
     if (id.x >= size.x || id.y >= size.y) {
