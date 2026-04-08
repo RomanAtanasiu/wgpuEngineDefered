@@ -127,6 +127,9 @@ protected:
     WGPUBindGroup post_processingAB = nullptr;
 	WGPUBindGroup post_processingBA = nullptr;
 
+    WGPUBindGroup post_processingAB_render = nullptr;
+	WGPUBindGroup post_processingBA_render = nullptr;
+
     WGPUBindGroup gbuffers_resolve_bindgroup = nullptr;
 	WGPUBindGroup single_texture_bindgroup = nullptr;
 	WGPUBindGroup post_process_a_to_gamma_bindgroup = nullptr;
@@ -142,8 +145,8 @@ protected:
     Pipeline light_pass_deferred_pipeline;
 	Pipeline gamma_correction_pipeline;
 	Pipeline blur_process_pass_pipeline;
-	Pipeline compute_post_process_pass_pipeline[MAX_POST_PROCESS_PASS];
-    Uniform gbuffer_sampler_uniform;
+	Pipeline post_process_pass_pipeline[MAX_POST_PROCESS_PASS];
+    Uniform  gbuffer_sampler_uniform;
 
     void render_post_processing(Pipeline &pipeline, std::vector<WGPUBindGroup> extras, const std::string &pass_name = "");
 
@@ -340,8 +343,10 @@ public:
     void init_gbuffers();
 	void init_deferred_light_buffer();
 	void init_gamma_pass();
-	void init_compute_post_process();
+
 	void init_compute_post_process(const char *source, const std::string &name,
+			const std::vector<std::string> &libraries, const std::string &pass_name);
+	void init_render_post_process(const char *source, const std::string &name,
 			const std::vector<std::string> &libraries, const std::string &pass_name);
     void init_deferred_lightpass();
 	void init_post_processing_textures();
