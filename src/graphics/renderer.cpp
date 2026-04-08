@@ -473,7 +473,7 @@ void Renderer::render()
         //to do, copy light buffer to bufferA
 		webgpu_context->copy_texture_to_texture(light_buffer_data.texture->get_texture(), BufferA.texture->get_texture(), 0, 0, light_buffer_data.texture->get_size(), { 0, 0, 0 }, { 0, 0, 0 }, global_command_encoder);
 
-
+        post_processing_bool = true;
         for (int i = 0; i < num_declared_post_process_passes; i++) {
 			std::vector<WGPUBindGroup> bind_groups = {};
 			render_post_processing(compute_post_process_pass_pipeline[i], bind_groups, "pass");
