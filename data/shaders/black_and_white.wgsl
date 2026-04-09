@@ -31,7 +31,8 @@ struct FragmentOutput {
 fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) -> FragmentOutput {
     var out: FragmentOutput;
     let screen_dims = textureDimensions(in_texture);
-    let color = textureLoad(in_texture, vec2<i32>(in.uv * vec2<f32>(screen_dims)), 0);
+    let pixel = vec2<i32>(in.uv * vec2<f32>(screen_dims));
+    let color = textureLoad(in_texture, pixel, 0);
     let color_black_and_white = (color.x + color.y + color.z) / 3.0; 
     out.color = vec4f(vec3f(color_black_and_white),color.a);
 

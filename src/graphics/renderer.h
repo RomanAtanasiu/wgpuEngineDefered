@@ -135,8 +135,7 @@ protected:
 	WGPUBindGroup post_process_a_to_gamma_bindgroup = nullptr;
 	WGPUBindGroup post_process_b_to_gamma_bindgroup = nullptr;
 
-    Shader* black_and_white_shader = nullptr;
-	Shader* blur_shader = nullptr;
+
 	Shader *shaders_post_processing[MAX_POST_PROCESS_PASS] = { nullptr };
 	int num_declared_post_process_passes = 0;
 	Shader *gbuffer_lighting_pass_shader = nullptr;
@@ -345,9 +344,9 @@ public:
 	void init_gamma_pass();
 
 	void init_compute_post_process(const char *source, const std::string &name,
-			const std::vector<std::string> &libraries, const std::string &pass_name);
+			const std::vector<std::string> &libraries, const std::string &entry_point);
 	void init_render_post_process(const char *source, const std::string &name,
-			const std::vector<std::string> &libraries, const std::string &pass_name);
+			const std::vector<std::string> &libraries);
     void init_deferred_lightpass();
 	void init_post_processing_textures();
     void init_depth_buffers();
