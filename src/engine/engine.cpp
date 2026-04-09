@@ -732,7 +732,16 @@ void Engine::render_default_gui()
 				}
 
             }
-
+			ImGui::Separator();
+			ImGui::Text("Post-processing passes:");
+            for (int i = 0; i < renderer->get_num_of_post_process_passes(); i++) {
+				bool enabled = renderer->get_post_process_enabled(i);
+				std::string label = "Post Process Pass " + std::to_string(i);
+				std::string shader_name = renderer->get_shader_name_post_process(i);
+				if (ImGui::Checkbox(shader_name.c_str(), &enabled)) {
+					renderer->set_post_process_enabled(i, enabled);
+				}
+			}
             
             ImGui::EndTabItem();
         }

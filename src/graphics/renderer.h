@@ -137,6 +137,7 @@ protected:
 
 
 	Shader *shaders_post_processing[MAX_POST_PROCESS_PASS] = { nullptr };
+	bool render_post_process[MAX_POST_PROCESS_PASS];
 	int num_declared_post_process_passes = 0;
 	Shader *gbuffer_lighting_pass_shader = nullptr;
 	Shader* gamma_pass_shader = nullptr;
@@ -457,4 +458,10 @@ public:
 	int get_show_depthbuffer() { return camera_data.show_depthbuffer; }
 
     int get_num_of_gbuffers() { return webgpu_context->gbuffer_format.GBUFFER_COUNT; }
+
+
+    int get_num_of_post_process_passes() { return num_declared_post_process_passes; }
+	bool get_post_process_enabled(int index) { return render_post_process[index]; }
+	void set_post_process_enabled(int index, bool value) { render_post_process[index] = value; }
+	std::string get_shader_name_post_process(int index);
 };

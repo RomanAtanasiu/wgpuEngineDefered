@@ -217,7 +217,7 @@ int Renderer::post_initialize()
 	init_post_processing_textures();
 	init_compute_post_process(shaders::blur_compute::source, shaders::blur_compute::path, shaders::blur_compute::libraries, "box_blur");
     init_render_post_process(shaders::black_and_white::source, shaders::black_and_white::path, shaders::black_and_white::libraries);
-//	init_compute_post_process(shaders::contrast_compute::source, shaders::contrast_compute::path, shaders::contrast_compute::libraries, "contrast_compute");
+	init_compute_post_process(shaders::contrast_compute::source, shaders::contrast_compute::path, shaders::contrast_compute::libraries, "contrast_compute");
     init_gamma_pass();
 
 
@@ -481,8 +481,10 @@ void Renderer::render()
 
         post_processing_bool = true;
         for (int i = 0; i < num_declared_post_process_passes; i++) {
-			std::vector<WGPUBindGroup> bind_groups = {};
-			render_post_processing(post_process_pass_pipeline[i], bind_groups, "pass");
+            if (render_post_process[i]) {
+				std::vector<WGPUBindGroup> bind_groups = {};
+				render_post_processing(post_process_pass_pipeline[i], bind_groups, shaders_post_processing[i]->get_path());
+			}
         }
 		/*
         for (Pipeline pipeline : post_process_pass_pipeline) {
@@ -1255,7 +1257,8 @@ void Renderer::init_compute_post_process(const char *source, const std::string &
             RendererStorage::get_shader_from_source(source, name, libraries);
 		std::vector<WGPUConstantEntry> constants;
 		post_process_pass_pipeline[num_declared_post_process_passes].create_compute(shaders_post_processing[num_declared_post_process_passes], entry_point, constants);
-	}
+		render_post_process[num_declared_post_process_passes] = true;
+    }
 
 	{
 		std::vector<Uniform *> uniforms;
@@ -1302,7 +1305,8 @@ void Renderer::init_render_post_process(const char *source, const std::string &n
         shaders_post_processing[num_declared_post_process_passes] =
 		    RendererStorage::get_shader_from_source(source, name, libraries);
 		post_process_pass_pipeline[num_declared_post_process_passes].create_render(shaders_post_processing[num_declared_post_process_passes], color_target, { .use_depth = false, .allow_msaa = false });
-	}
+		render_post_process[num_declared_post_process_passes] = true;
+    }
 	{
 		std::vector<Uniform *> uniforms;
 		Uniform texture_uniformA;
@@ -2070,6 +2074,11 @@ void Renderer::set_irradiance_texture(Texture* texture)
 
     init_lighting_bind_group();
 }
+
+std::string Renderer::get_shader_name_post_process(int index) {
+	return shaders_post_processing[index]->get_path();
+}
+
 
 #ifdef XR_SUPPORT
 XRContext* Renderer::get_xr_context()
