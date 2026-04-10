@@ -743,7 +743,7 @@ void Engine::render_default_gui()
 				bool enabled = renderer->get_post_process_enabled(i);
 				std::string shader_name = renderer->get_shader_name_post_process(i);
 
-				std::string checkbox_id = shader_name + "##enable_" + std::to_string(i);
+				std::string checkbox_id = shader_name;
 				if (ImGui::Checkbox(checkbox_id.c_str(), &enabled)) {
 					renderer->set_post_process_enabled(i, enabled);
 				}

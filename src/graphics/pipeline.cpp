@@ -170,6 +170,8 @@ bool Pipeline::set(const WGPURenderPassEncoder& render_pass) const
 
 	wgpuRenderPassEncoderSetPipeline(render_pass, std::get<WGPURenderPipeline>(pipeline));
 
+
+
     return true;
 }
 

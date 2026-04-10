@@ -216,7 +216,7 @@ int Renderer::post_initialize()
     init_deferred_lightpass();
 	init_post_processing_textures();
 	init_compute_post_process(shaders::blur_compute::source, shaders::blur_compute::path, shaders::blur_compute::libraries, "box_blur");
-    init_render_post_process(shaders::black_and_white::source, shaders::black_and_white::path, shaders::black_and_white::libraries);
+	init_render_post_process(shaders::black_and_white::source, shaders::black_and_white::path, shaders::black_and_white::libraries);
 	init_compute_post_process(shaders::contrast_compute::source, shaders::contrast_compute::path, shaders::contrast_compute::libraries, "contrast_compute");
     init_gamma_pass();
 
@@ -888,8 +888,8 @@ void Renderer::render_gamma_correction(WGPUTextureView framebuffer_view,
 }
 
 
-void Renderer::render_post_processing(Pipeline &pipeline, std::vector<WGPUBindGroup> extras, const std::string &pass_name) {
-	if (pipeline.is_compute_pipeline()) {
+void Renderer::render_post_processing(Pipeline *pipeline, std::vector<WGPUBindGroup> extras, const std::string &pass_name) {
+	if (pipeline->is_compute_pipeline()) {
 
         WGPUComputePassDescriptor compute_pass_descriptor = {};
        	WGPUComputePassEncoder compute_pass = wgpuCommandEncoderBeginComputePass(global_command_encoder, &compute_pass_descriptor);
@@ -898,7 +898,7 @@ void Renderer::render_post_processing(Pipeline &pipeline, std::vector<WGPUBindGr
     #endif
         {
 
-            pipeline.set(compute_pass);
+            pipeline->set(compute_pass);
 
             WGPUBindGroup temporal = post_processing_bool ? post_processingAB: post_processingBA;
 
@@ -951,7 +951,7 @@ void Renderer::render_post_processing(Pipeline &pipeline, std::vector<WGPUBindGr
 #endif
 
 			{
-				pipeline.set(render_pass);
+				pipeline->set(render_pass);
 
 				WGPUBindGroup temporal = post_processing_bool ? post_processingAB_render : post_processingBA_render;
 
@@ -1256,7 +1256,8 @@ void Renderer::init_compute_post_process(const char *source, const std::string &
 		shaders_post_processing[num_declared_post_process_passes] =
             RendererStorage::get_shader_from_source(source, name, libraries);
 		std::vector<WGPUConstantEntry> constants;
-		post_process_pass_pipeline[num_declared_post_process_passes].create_compute(shaders_post_processing[num_declared_post_process_passes], entry_point, constants);
+		post_process_pass_pipeline[num_declared_post_process_passes] = new Pipeline();
+		post_process_pass_pipeline[num_declared_post_process_passes]->create_compute(shaders_post_processing[num_declared_post_process_passes], entry_point, constants);
 		render_post_process[num_declared_post_process_passes] = true;
     }
 
@@ -1304,7 +1305,8 @@ void Renderer::init_render_post_process(const char *source, const std::string &n
 
         shaders_post_processing[num_declared_post_process_passes] =
 		    RendererStorage::get_shader_from_source(source, name, libraries);
-		post_process_pass_pipeline[num_declared_post_process_passes].create_render(shaders_post_processing[num_declared_post_process_passes], color_target, { .use_depth = false, .allow_msaa = false });
+		post_process_pass_pipeline[num_declared_post_process_passes] = new Pipeline();
+		post_process_pass_pipeline[num_declared_post_process_passes]->create_render(shaders_post_processing[num_declared_post_process_passes], color_target, { .use_depth = false, .allow_msaa = false });
 		render_post_process[num_declared_post_process_passes] = true;
     }
 	{
@@ -2078,12 +2080,12 @@ void Renderer::set_irradiance_texture(Texture* texture)
 std::string Renderer::get_shader_name_post_process(int index) {
 	return shaders_post_processing[index]->get_path();
 }
-#include <iostream>
+
 void Renderer::swap_post_process(int a, int b) {
+
 	std::swap(shaders_post_processing[a], shaders_post_processing[b]);
 	std::swap(render_post_process[a], render_post_process[b]);
 	std::swap(post_process_pass_pipeline[a], post_process_pass_pipeline[b]);
-	
 }
 
 

@@ -18,7 +18,7 @@
 
 #define MAX_LIGHTS 32u
 #define SHADOW_MAP_SIZE 1024
-#define MAX_POST_PROCESS_PASS 3u
+#define MAX_POST_PROCESS_PASS 10u
 
 
 class Camera;
@@ -135,6 +135,11 @@ protected:
 	WGPUBindGroup post_process_a_to_gamma_bindgroup = nullptr;
 	WGPUBindGroup post_process_b_to_gamma_bindgroup = nullptr;
 
+  //  struct sPostProcessData {
+		//Shader *shader = nullptr;
+		//Pipeline pipeline;
+		//bool activated = false;
+  //  };
 
 	Shader *shaders_post_processing[MAX_POST_PROCESS_PASS] = { nullptr };
 	bool render_post_process[MAX_POST_PROCESS_PASS];
@@ -145,10 +150,10 @@ protected:
     Pipeline light_pass_deferred_pipeline;
 	Pipeline gamma_correction_pipeline;
 	Pipeline blur_process_pass_pipeline;
-	Pipeline post_process_pass_pipeline[MAX_POST_PROCESS_PASS];
+	Pipeline* post_process_pass_pipeline[MAX_POST_PROCESS_PASS];
     Uniform  gbuffer_sampler_uniform;
 
-    void render_post_processing(Pipeline &pipeline, std::vector<WGPUBindGroup> extras, const std::string &pass_name = "");
+    void render_post_processing(Pipeline *pipeline, std::vector<WGPUBindGroup> extras, const std::string &pass_name = "");
 
 #ifndef __EMSCRIPTEN__
     RenderdocCapture* renderdoc_capture;
