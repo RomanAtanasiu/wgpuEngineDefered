@@ -464,4 +464,5 @@ public:
 	bool get_post_process_enabled(int index) { return render_post_process[index]; }
 	void set_post_process_enabled(int index, bool value) { render_post_process[index] = value; }
 	std::string get_shader_name_post_process(int index);
+	void swap_post_process(int a, int b);
 };

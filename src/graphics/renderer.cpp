@@ -2078,6 +2078,13 @@ void Renderer::set_irradiance_texture(Texture* texture)
 std::string Renderer::get_shader_name_post_process(int index) {
 	return shaders_post_processing[index]->get_path();
 }
+#include <iostream>
+void Renderer::swap_post_process(int a, int b) {
+	std::swap(shaders_post_processing[a], shaders_post_processing[b]);
+	std::swap(render_post_process[a], render_post_process[b]);
+	std::swap(post_process_pass_pipeline[a], post_process_pass_pipeline[b]);
+	
+}
 
 
 #ifdef XR_SUPPORT

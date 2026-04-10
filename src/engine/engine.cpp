@@ -733,14 +733,37 @@ void Engine::render_default_gui()
 
             }
 			ImGui::Separator();
+
+
+            int swap_a = -1;
+			int swap_b = -1;
+
 			ImGui::Text("Post-processing passes:");
-            for (int i = 0; i < renderer->get_num_of_post_process_passes(); i++) {
+			for (int i = 0; i < renderer->get_num_of_post_process_passes(); i++) {
 				bool enabled = renderer->get_post_process_enabled(i);
-				std::string label = "Post Process Pass " + std::to_string(i);
 				std::string shader_name = renderer->get_shader_name_post_process(i);
-				if (ImGui::Checkbox(shader_name.c_str(), &enabled)) {
+
+				std::string checkbox_id = shader_name + "##enable_" + std::to_string(i);
+				if (ImGui::Checkbox(checkbox_id.c_str(), &enabled)) {
 					renderer->set_post_process_enabled(i, enabled);
 				}
+
+				for (int j = 0; j < renderer->get_num_of_post_process_passes(); j++) {
+					if (i != j) {
+						std::string name = renderer->get_shader_name_post_process(j);
+						std::string button_id = name + "##swap_" + std::to_string(i) + "_" + std::to_string(j);
+
+						if (ImGui::SmallButton(button_id.c_str())) {
+							swap_a = i;
+							swap_b = j;
+						}
+					}
+				}
+
+				ImGui::Separator();
+			}
+			if (swap_a != -1) {
+				renderer->swap_post_process(swap_a, swap_b);
 			}
             
             ImGui::EndTabItem();
@@ -749,6 +772,7 @@ void Engine::render_default_gui()
     }
 
     ImGui::Separator();
+
 
 
     if (selected_node && scene_tab_open) {
