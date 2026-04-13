@@ -768,7 +768,7 @@ void Engine::render_default_gui()
 			for (int i = 0; i < renderer->get_num_of_post_process_passes(); i++) {
 				int index = renderer->get_post_process_index(i);
 				if (last_index == index) {
-					std::string name = renderer->get_shader_name_post_process(index);
+					std::string name = renderer->get_shader_name_post_process(i);
 					ImGui::Text("Post-process %d: %s", index + 1, name.c_str());
 					last_index++;
 					i = -1;
