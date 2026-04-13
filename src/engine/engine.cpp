@@ -740,32 +740,42 @@ void Engine::render_default_gui()
 
 			ImGui::Text("Post-processing passes:");
 			for (int i = 0; i < renderer->get_num_of_post_process_passes(); i++) {
-				bool enabled = renderer->get_post_process_enabled(i);
-				std::string shader_name = renderer->get_shader_name_post_process(i);
+				int idx = renderer->get_post_process_index(i); 
 
-				std::string checkbox_id = shader_name;
-				if (ImGui::Checkbox(checkbox_id.c_str(), &enabled)) {
-					renderer->set_post_process_enabled(i, enabled);
+				bool enabled = renderer->get_post_process_enabled(idx); 
+				std::string shader_name = renderer->get_shader_name_post_process(idx); 
+
+				if (ImGui::Checkbox(shader_name.c_str(), &enabled)) {
+					renderer->set_post_process_enabled(idx, enabled); 
 				}
 
 				for (int j = 0; j < renderer->get_num_of_post_process_passes(); j++) {
 					if (i != j) {
-						std::string name = renderer->get_shader_name_post_process(j);
+						int jdx = renderer->get_post_process_index(j);
+						std::string name = renderer->get_shader_name_post_process(jdx);
 						std::string button_id = name + "##swap_" + std::to_string(i) + "_" + std::to_string(j);
 
 						if (ImGui::SmallButton(button_id.c_str())) {
-							swap_a = i;
+							swap_a = i; 
 							swap_b = j;
 						}
 					}
 				}
-
 				ImGui::Separator();
 			}
-			if (swap_a != -1) {
-				renderer->swap_post_process(swap_a, swap_b);
+			ImGui::Text("Order of post_process passes:");
+			int last_index = 0;
+			for (int i = 0; i < renderer->get_num_of_post_process_passes(); i++) {
+				int index = renderer->get_post_process_index(i);
+				if (last_index == index) {
+					std::string name = renderer->get_shader_name_post_process(index);
+					ImGui::Text("Post-process %d: %s", index + 1, name.c_str());
+					last_index++;
+					i = -1;
+				}
 			}
-            
+			if (swap_a != -1) 
+				renderer->swap_post_process(swap_a, swap_b);
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();

@@ -136,12 +136,15 @@ protected:
 
     struct sPostProcessData {
 		Shader *shader = nullptr;
-		Pipeline pipeline;
+		Pipeline* pipeline;
 		bool activated = false;
-    };
+		int index;
+	};
 
-	Shader *shaders_post_processing[MAX_POST_PROCESS_PASS] = { nullptr };
-	bool render_post_process[MAX_POST_PROCESS_PASS];
+    sPostProcessData post_process_data[MAX_POST_PROCESS_PASS];
+
+	//Shader *shaders_post_processing[MAX_POST_PROCESS_PASS] = { nullptr };
+	//bool render_post_process[MAX_POST_PROCESS_PASS];
 	int num_declared_post_process_passes = 0;
 	Shader *gbuffer_lighting_pass_shader = nullptr;
 	Shader* gamma_pass_shader = nullptr;
@@ -149,7 +152,7 @@ protected:
     Pipeline light_pass_deferred_pipeline;
 	Pipeline gamma_correction_pipeline;
 	Pipeline blur_process_pass_pipeline;
-	Pipeline* post_process_pass_pipeline[MAX_POST_PROCESS_PASS];
+	//Pipeline* post_process_pass_pipeline[MAX_POST_PROCESS_PASS];
     Uniform  gbuffer_sampler_uniform;
 
     void render_post_processing(Pipeline *pipeline, std::vector<WGPUBindGroup> extras, const std::string &pass_name = "");
@@ -466,8 +469,9 @@ public:
 
 
     int get_num_of_post_process_passes() { return num_declared_post_process_passes; }
-	bool get_post_process_enabled(int index) { return render_post_process[index]; }
-	void set_post_process_enabled(int index, bool value) { render_post_process[index] = value; }
+	bool get_post_process_enabled(int index) { return post_process_data[index].activated; }
+	int get_post_process_index(int i) { return post_process_data[i].index; }
+	void set_post_process_enabled(int index, bool value) {  post_process_data[index].activated = value; }
 	std::string get_shader_name_post_process(int index);
 	void swap_post_process(int a, int b);
 };

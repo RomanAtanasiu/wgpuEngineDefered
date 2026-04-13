@@ -365,10 +365,10 @@ void Renderer::clean()
 
     delete gbuffer_lighting_pass_shader;
 	delete gamma_pass_shader;
-	//delete[] shaders_post_processing;
+	//delete[] post_process_data.shader;
 	for (int i = 0; i<num_declared_post_process_passes; i++) {
-        delete shaders_post_processing[i];
-	}
+		delete post_process_data[i].shader;
+    }
 
 
 #ifndef __EMSCRIPTEN__
@@ -487,9 +487,10 @@ void Renderer::render()
 
         post_processing_bool = true;
         for (int i = 0; i < num_declared_post_process_passes; i++) {
-            if (render_post_process[i]) {
+			int index = post_process_data[i].index;
+			if (post_process_data[index].activated) {
 				std::vector<WGPUBindGroup> bind_groups = {};
-				render_post_processing(post_process_pass_pipeline[i], bind_groups, shaders_post_processing[i]->get_path());
+				render_post_processing(post_process_data[index].pipeline, bind_groups, post_process_data[index].shader->get_path());
 			}
         }
 		/*
@@ -1259,12 +1260,13 @@ void Renderer::init_post_processing_textures() {
 void Renderer::init_compute_post_process(const char *source, const std::string &name, const std::vector<std::string> &libraries, const std::string &entry_point) {
 	{
 		
-		shaders_post_processing[num_declared_post_process_passes] =
+		post_process_data[num_declared_post_process_passes].shader =
             RendererStorage::get_shader_from_source(source, name, libraries);
 		std::vector<WGPUConstantEntry> constants;
-		post_process_pass_pipeline[num_declared_post_process_passes] = new Pipeline();
-		post_process_pass_pipeline[num_declared_post_process_passes]->create_compute(shaders_post_processing[num_declared_post_process_passes], entry_point, constants);
-		render_post_process[num_declared_post_process_passes] = true;
+		post_process_data[num_declared_post_process_passes].pipeline = new Pipeline();
+		post_process_data[num_declared_post_process_passes].pipeline->create_compute(post_process_data[num_declared_post_process_passes].shader, entry_point, constants);
+		post_process_data[num_declared_post_process_passes].activated = true;
+		post_process_data[num_declared_post_process_passes].index = num_declared_post_process_passes;
 		num_declared_post_process_passes++;
     }
 
@@ -1278,11 +1280,12 @@ void Renderer::init_render_post_process(const char *source, const std::string &n
 		color_target.blend = nullptr;
 		color_target.writeMask = WGPUColorWriteMask_All;
 
-        shaders_post_processing[num_declared_post_process_passes] =
+        post_process_data[num_declared_post_process_passes].shader =
 		    RendererStorage::get_shader_from_source(source, name, libraries);
-		post_process_pass_pipeline[num_declared_post_process_passes] = new Pipeline();
-		post_process_pass_pipeline[num_declared_post_process_passes]->create_render(shaders_post_processing[num_declared_post_process_passes], color_target, { .use_depth = false, .allow_msaa = false });
-		render_post_process[num_declared_post_process_passes] = true;
+		post_process_data[num_declared_post_process_passes].pipeline = new Pipeline();
+		post_process_data[num_declared_post_process_passes].pipeline->create_render(post_process_data[num_declared_post_process_passes].shader, color_target, { .use_depth = false, .allow_msaa = false });
+		post_process_data[num_declared_post_process_passes].activated = true;
+		post_process_data[num_declared_post_process_passes].index = num_declared_post_process_passes;
 		num_declared_post_process_passes++;
     }
 }
@@ -2091,14 +2094,13 @@ void Renderer::set_irradiance_texture(Texture* texture)
 }
 
 std::string Renderer::get_shader_name_post_process(int index) {
-	return shaders_post_processing[index]->get_path();
+
+    return post_process_data[index].shader->get_path();
 }
 
 void Renderer::swap_post_process(int a, int b) {
-
-	std::swap(shaders_post_processing[a], shaders_post_processing[b]);
-	std::swap(render_post_process[a], render_post_process[b]);
-	std::swap(post_process_pass_pipeline[a], post_process_pass_pipeline[b]);
+	std::swap(post_process_data[a].index, post_process_data[b].index);
+    
 }
 
 
