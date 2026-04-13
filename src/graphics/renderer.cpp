@@ -215,10 +215,13 @@ int Renderer::post_initialize()
 
     init_deferred_lightpass();
 	init_post_processing_textures();
+	init_gamma_pass();
 	init_compute_post_process(shaders::blur_compute::source, shaders::blur_compute::path, shaders::blur_compute::libraries, "box_blur");
 	init_render_post_process(shaders::black_and_white::source, shaders::black_and_white::path, shaders::black_and_white::libraries);
 	init_compute_post_process(shaders::contrast_compute::source, shaders::contrast_compute::path, shaders::contrast_compute::libraries, "contrast_compute");
-    init_gamma_pass();
+
+    init_post_process_bindgroups();
+
 
 
 
@@ -317,7 +320,6 @@ void Renderer::clean()
     wgpuBindGroupRelease(shadow_camera_bind_group);
     wgpuBindGroupRelease(gbuffers_resolve_bindgroup);
 	wgpuBindGroupRelease(gbuffers_light_pass_camera_bind_group);
-	wgpuBindGroupRelease(single_texture_bindgroup);
 	wgpuBindGroupRelease(post_processingAB);
 	wgpuBindGroupRelease(post_processingBA);
 	wgpuBindGroupRelease(post_processingAB_render);
@@ -1259,39 +1261,8 @@ void Renderer::init_compute_post_process(const char *source, const std::string &
 		post_process_pass_pipeline[num_declared_post_process_passes] = new Pipeline();
 		post_process_pass_pipeline[num_declared_post_process_passes]->create_compute(shaders_post_processing[num_declared_post_process_passes], entry_point, constants);
 		render_post_process[num_declared_post_process_passes] = true;
-    }
-
-	{
-		std::vector<Uniform *> uniforms;
-		Uniform texture_uniformA;
-		texture_uniformA.data = BufferA.texture_view;
-		texture_uniformA.binding = 0;
-
-		Uniform texture_uniformB;
-		texture_uniformB.data = BufferB.texture_view;
-		texture_uniformB.binding = 1;
-		uniforms.push_back(&texture_uniformA);
-		uniforms.push_back(&texture_uniformB);
-
-
-		post_processingAB = webgpu_context->create_bind_group(uniforms, shaders_post_processing[num_declared_post_process_passes], 0);
-
-
-		uniforms.clear();
-		Uniform second_texture_uniformA;
-		second_texture_uniformA.data = texture_uniformA.data;
-		second_texture_uniformA.binding = 1;
-
-		Uniform second_texture_uniformB;
-		second_texture_uniformB.data = texture_uniformB.data;
-		second_texture_uniformB.binding = 0;
-
-		uniforms.push_back(&second_texture_uniformB);
-		uniforms.push_back(&second_texture_uniformA);
-
-		post_processingBA = webgpu_context->create_bind_group(uniforms, shaders_post_processing[num_declared_post_process_passes], 0);
 		num_declared_post_process_passes++;
-	}
+    }
 
 }
 
@@ -1308,28 +1279,8 @@ void Renderer::init_render_post_process(const char *source, const std::string &n
 		post_process_pass_pipeline[num_declared_post_process_passes] = new Pipeline();
 		post_process_pass_pipeline[num_declared_post_process_passes]->create_render(shaders_post_processing[num_declared_post_process_passes], color_target, { .use_depth = false, .allow_msaa = false });
 		render_post_process[num_declared_post_process_passes] = true;
-    }
-	{
-		std::vector<Uniform *> uniforms;
-		Uniform texture_uniformA;
-		texture_uniformA.data = BufferA.texture_view;
-		texture_uniformA.binding = 0;
-		uniforms.push_back(&texture_uniformA);
-
-		post_processingAB_render = webgpu_context->create_bind_group(uniforms, shaders_post_processing[num_declared_post_process_passes], 0);
-
-		uniforms.clear();
-
-		Uniform texture_uniformB;
-		texture_uniformB.data = BufferB.texture_view;
-		texture_uniformB.binding = 0;
-
-		uniforms.push_back(&texture_uniformB);
-
-
-		post_processingBA_render = webgpu_context->create_bind_group(uniforms, shaders_post_processing[num_declared_post_process_passes], 0);
 		num_declared_post_process_passes++;
-	}
+    }
 }
 
 void Renderer::init_deferred_lightpass() {
@@ -1527,6 +1478,64 @@ void Renderer::init_timestamp_queries()
     timestamp_query_set = webgpu_context->create_query_set(maximum_query_sets);
     timestamp_query_buffer = webgpu_context->create_buffer(sizeof(uint64_t) * maximum_query_sets, WGPUBufferUsage_QueryResolve | WGPUBufferUsage_Storage | WGPUBufferUsage_CopySrc | WGPUBufferUsage_CopyDst, nullptr);
 #endif
+}
+
+void Renderer::init_post_process_bindgroups() {
+
+    	{ //fragment shader bindgroups
+		Shader *post_process_shader = RendererStorage::get_shader_from_source(shaders::black_and_white::source, shaders::black_and_white::path, shaders::black_and_white::libraries);
+		std::vector<Uniform *> uniforms;
+		Uniform texture_uniformA;
+		texture_uniformA.data = BufferA.texture_view;
+		texture_uniformA.binding = 0;
+		uniforms.push_back(&texture_uniformA);
+
+		post_processingAB_render = webgpu_context->create_bind_group(uniforms, post_process_shader, 0);
+
+		uniforms.clear();
+
+		Uniform texture_uniformB;
+		texture_uniformB.data = BufferB.texture_view;
+		texture_uniformB.binding = 0;
+
+		uniforms.push_back(&texture_uniformB);
+
+		post_processingBA_render = webgpu_context->create_bind_group(uniforms, post_process_shader, 0);
+
+	}
+
+    { //compute shader bindgroups
+		
+		Shader* post_process_shader = RendererStorage::get_shader_from_source(shaders::blur_compute::source, shaders::blur_compute::path, shaders::blur_compute::libraries);
+	
+		std::vector<Uniform *> uniforms;
+		Uniform texture_uniformA;
+		texture_uniformA.data = BufferA.texture_view;
+		texture_uniformA.binding = 0;
+
+		Uniform texture_uniformB;
+		texture_uniformB.data = BufferB.texture_view;
+		texture_uniformB.binding = 1;
+		uniforms.push_back(&texture_uniformA);
+		uniforms.push_back(&texture_uniformB);
+
+		post_processingAB = webgpu_context->create_bind_group(uniforms, post_process_shader, 0);
+
+		uniforms.clear();
+		Uniform second_texture_uniformA;
+		second_texture_uniformA.data = texture_uniformA.data;
+		second_texture_uniformA.binding = 1;
+
+		Uniform second_texture_uniformB;
+		second_texture_uniformB.data = texture_uniformB.data;
+		second_texture_uniformB.binding = 0;
+
+		uniforms.push_back(&second_texture_uniformB);
+		uniforms.push_back(&second_texture_uniformA);
+
+		post_processingBA = webgpu_context->create_bind_group(uniforms, post_process_shader, 0);
+
+        }
 }
 
 void Renderer::resolve_query_set(WGPUCommandEncoder encoder, uint8_t first_query)

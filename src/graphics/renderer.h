@@ -131,15 +131,14 @@ protected:
 	WGPUBindGroup post_processingBA_render = nullptr;
 
     WGPUBindGroup gbuffers_resolve_bindgroup = nullptr;
-	WGPUBindGroup single_texture_bindgroup = nullptr;
 	WGPUBindGroup post_process_a_to_gamma_bindgroup = nullptr;
 	WGPUBindGroup post_process_b_to_gamma_bindgroup = nullptr;
 
-  //  struct sPostProcessData {
-		//Shader *shader = nullptr;
-		//Pipeline pipeline;
-		//bool activated = false;
-  //  };
+    struct sPostProcessData {
+		Shader *shader = nullptr;
+		Pipeline pipeline;
+		bool activated = false;
+    };
 
 	Shader *shaders_post_processing[MAX_POST_PROCESS_PASS] = { nullptr };
 	bool render_post_process[MAX_POST_PROCESS_PASS];
@@ -358,6 +357,7 @@ public:
     void init_depth_buffers();
     void init_multisample_textures();
     void init_timestamp_queries();
+	void init_post_process_bindgroups();
 
     void set_frustum_camera_paused(bool value);
     bool get_frustum_camera_paused();
