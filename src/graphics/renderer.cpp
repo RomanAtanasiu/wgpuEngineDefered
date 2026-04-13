@@ -365,7 +365,11 @@ void Renderer::clean()
 
     delete gbuffer_lighting_pass_shader;
 	delete gamma_pass_shader;
-	delete[] shaders_post_processing;
+	//delete[] shaders_post_processing;
+	for (int i = 0; i<num_declared_post_process_passes; i++) {
+        delete shaders_post_processing[i];
+	}
+
 
 #ifndef __EMSCRIPTEN__
     delete renderdoc_capture;
