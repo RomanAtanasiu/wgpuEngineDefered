@@ -1,8 +1,28 @@
 #include mesh_includes.wgsl
 #include tonemappers.wgsl
 
-@group(0) @binding(0) var gbuffer_albedo_metallic: texture_2d<f32>;
-@group(0) @binding(1) var gbuffer_normal_roughness: texture_2d<f32>;
+
+fn decode(f_in: vec2<f32>) -> vec3<f32> {
+    var f = f_in * 2.0 - vec2<f32>(1.0);
+
+    var n = vec3<f32>(
+        f.x,
+        f.y,
+        1.0 - abs(f.x) - abs(f.y)
+    );
+
+    let t = clamp(-n.z, 0.0, 1.0);
+
+    let adjust = select(vec2<f32>(t), vec2<f32>(-t), n.xy >= vec2<f32>(0.0));
+    //n.xy += adjust;
+
+    n.x += adjust.x;
+    n.y += adjust.y;
+    return normalize(n);
+}
+
+@group(0) @binding(0) var gbuffer_albedo_metallic_roughness: texture_2d<f32>;
+@group(0) @binding(1) var gbuffer_normal_velocity: texture_2d<f32>;
 @group(0) @binding(2) var gbuffer_depth_buffer: texture_depth_2d;
 @group(0) @binding(3) var sampler_2d : sampler;
 
@@ -42,9 +62,9 @@ struct FragmentOutput {
 fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) -> FragmentOutput {
 
     var out: FragmentOutput;
-    let albedo_metallic = textureSample(gbuffer_albedo_metallic, sampler_2d, in.uv);
-    let normal_roughness = textureSample(gbuffer_normal_roughness, sampler_2d, in.uv);
-
+    let albedo_metallic_roughness = textureSample(gbuffer_albedo_metallic_roughness, sampler_2d, in.uv);
+    let normal_velocity = textureSample(gbuffer_normal_velocity, sampler_2d, in.uv);
+    let metallic_roughness: vec2f = unpack2x16float(u32(albedo_metallic_roughness.a));
 //todo
 //camera_data.screen size does not work, since it is webgpu_context->screen_width
 //and gbuffer_depth_buffer is webgpu_context->render_width
@@ -71,11 +91,12 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
     var m : PbrMaterial;
 
     m.pos = world_pos;
-    m.albedo = albedo_metallic.rgb;
-    m.metallic = albedo_metallic.a;
-
-    m.normal = normalize(normal_roughness.rgb);
-    m.roughness = normal_roughness.a;
+    m.albedo = albedo_metallic_roughness.rgb;
+    m.metallic = metallic_roughness.r;
+    let normal = decode(normal_velocity.rg);
+    
+    m.normal = normal;
+    m.roughness = metallic_roughness.g;
 
 
     m.view_dir = normalize(camera_data.eye - m.pos);
@@ -106,10 +127,10 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
         out.color = vec4f(final_color, 1.0);
     }
     else if (camera_data.show_gbuffers == 1){
-        out.color = albedo_metallic;
+        out.color = vec4f(albedo_metallic_roughness.rgb,1.0);
     }
     else if (camera_data.show_gbuffers == 2){
-        out.color = normal_roughness;
+        out.color = vec4f(normal_velocity);
     } else{
         out.color = vec4f(vec3f(depth),1.0);
     }
@@ -117,8 +138,8 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
     return out;
 
 
-    out.color = vec4f(textureSample(gbuffer_albedo_metallic, sampler_2d, in.uv).xyz, 1.0);
-    let i = textureSample(gbuffer_normal_roughness, sampler_2d, vec2f(0.0));
+    out.color = vec4f(textureSample(gbuffer_albedo_metallic_roughness, sampler_2d, in.uv).xyz, 1.0);
+    let i = textureSample(gbuffer_normal_velocity, sampler_2d, vec2f(0.0));
     let j = textureLoad(gbuffer_depth_buffer, vec2i(0), 0);
 
     return out;

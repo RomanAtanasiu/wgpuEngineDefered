@@ -1,7 +1,28 @@
 #include math.wgsl
 #include mesh_includes.wgsl
 #include tonemappers.wgsl
+fn oct_wrap(v: vec2<f32>) -> vec2<f32> {
+    let sign = select(vec2<f32>(-1.0), vec2<f32>(1.0), v >= vec2<f32>(0.0));
+    return (vec2<f32>(1.0) - abs(vec2<f32>(v.y, v.x))) * sign;
+}
 
+fn encode(n_in: vec3<f32>) -> vec2<f32> {
+    var n = n_in;
+    let inv_l1 = 1.0 / (abs(n.x) + abs(n.y) + abs(n.z));
+    n *= inv_l1;
+    var temp : vec2f;
+    if (n.z < 0.0) {
+        temp = oct_wrap(vec2f(n.xy));
+        n.x = temp.x;
+        n.y = temp.y;
+    }
+
+    //n.xy = n.xy * 0.5 + vec2<f32>(0.5);
+    temp = n.xy * 0.5 + vec2<f32>(0.5);
+    n.x = temp.x;
+    n.y = temp.y;
+    return n.xy;
+}
 #define GAMMA_CORRECTION
 
 @group(0) @binding(0) var<storage, read> mesh_data : InstanceData;
@@ -160,8 +181,8 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 }
 
 struct FragmentOutput {
-    @location(0) gbuffer_albedo_metallic: vec4f,
-    @location(1) gbuffer_normal_roughness: vec4f
+    @location(0) gbuffer_albedo_metallic_roughness: vec4f,
+    @location(1) gbuffer_normal_velocity: vec4f
 }
 
 @fragment
@@ -228,8 +249,12 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_facing: bool) -> Fr
     m.ao = 1.0;
 #endif // OCLUSSION_TEXTURE
 
-    out.gbuffer_albedo_metallic = vec4f(albedo_color.x, albedo_color.y, albedo_color.z, m.metallic);
-    out.gbuffer_normal_roughness = vec4f(m.normal.x, m.normal.y, m.normal.z, m.roughness);
+
+    let metallic_roughness = f32(pack2x16float(vec2f(m.metallic,m.roughness)));
+    out.gbuffer_albedo_metallic_roughness = vec4f(albedo_color.x, albedo_color.y, albedo_color.z, metallic_roughness);
+    
+    let normal_encoded = encode(normalize(m.normal));
+    out.gbuffer_normal_velocity = vec4f(normal_encoded.x, normal_encoded.y, 0, 0);
 
     // m.roughness = max(m.roughness, 0.04);
     // m.diffuse = mix(m.albedo, vec3f(0.0), m.metallic);
