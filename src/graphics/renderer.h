@@ -136,23 +136,25 @@ protected:
 
     struct sPostProcessData {
 		Shader *shader = nullptr;
-		Pipeline* pipeline;
+		Pipeline* pipeline = nullptr;
 		bool activated = false;
 		int index;
+
+        std::vector<WGPUBindGroup> bindgroups;
+		void add_bind_group(WGPUBindGroup bind_group) {bindgroups.push_back(bind_group);}
 	};
 
     sPostProcessData post_process_data[MAX_POST_PROCESS_PASS];
-
-	//Shader *shaders_post_processing[MAX_POST_PROCESS_PASS] = { nullptr };
-	//bool render_post_process[MAX_POST_PROCESS_PASS];
+	WGPUBuffer blur_level_buffer = nullptr;
+	int32_t blur_level = 5;
 	int num_declared_post_process_passes = 0;
 	Shader *gbuffer_lighting_pass_shader = nullptr;
 	Shader* gamma_pass_shader = nullptr;
 
     Pipeline light_pass_deferred_pipeline;
 	Pipeline gamma_correction_pipeline;
-	Pipeline blur_process_pass_pipeline;
-	//Pipeline* post_process_pass_pipeline[MAX_POST_PROCESS_PASS];
+
+
     Uniform  gbuffer_sampler_uniform;
 
     void render_post_processing(Pipeline *pipeline, std::vector<WGPUBindGroup> extras, const std::string &pass_name = "");
@@ -474,4 +476,9 @@ public:
 	void set_post_process_enabled(int index, bool value) {  post_process_data[index].activated = value; }
 	std::string get_shader_name_post_process(int index);
 	void swap_post_process(int a, int b);
+	int* get_blur_level() { return &blur_level; }
+    void set_blur_level(int level) {
+		blur_level = level;
+		webgpu_context->update_buffer(blur_level_buffer, 0, &blur_level, sizeof(int32_t));
+    }
 };

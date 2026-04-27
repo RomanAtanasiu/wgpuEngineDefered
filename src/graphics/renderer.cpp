@@ -166,58 +166,66 @@ int Renderer::initialize()
     return 0;
 }
 
-int Renderer::post_initialize()
-{
-    webgpu_context->print_device_info();
+int Renderer::post_initialize() {
+	webgpu_context->print_device_info();
 
 #ifdef XR_SUPPORT
 
-    xr_context->z_near = z_near;
-    xr_context->z_far = z_far;
+	xr_context->z_near = z_near;
+	xr_context->z_far = z_far;
 
-    if (is_xr_available && !xr_context->init(webgpu_context)) {
-        spdlog::error("Could not initialize XR context");
-        is_xr_available = false;
-    }
+	if (is_xr_available && !xr_context->init(webgpu_context)) {
+		spdlog::error("Could not initialize XR context");
+		is_xr_available = false;
+	}
 
-    if (is_xr_available) {
-        webgpu_context->render_width = xr_context->viewport.z;
-        webgpu_context->render_height = xr_context->viewport.w;
-    }
+	if (is_xr_available) {
+		webgpu_context->render_width = xr_context->viewport.z;
+		webgpu_context->render_height = xr_context->viewport.w;
+	}
 #endif
 
-    if (!is_xr_available) {
-        webgpu_context->render_width = webgpu_context->screen_width;
-        webgpu_context->render_height = webgpu_context->screen_height;
-    }
+	if (!is_xr_available) {
+		webgpu_context->render_width = webgpu_context->screen_width;
+		webgpu_context->render_height = webgpu_context->screen_height;
+	}
 
-    // Create the command encoder
-    WGPUCommandEncoderDescriptor encoder_desc = {};
-    global_command_encoder = wgpuDeviceCreateCommandEncoder(webgpu_context->device, &encoder_desc);
+	// Create the command encoder
+	WGPUCommandEncoderDescriptor encoder_desc = {};
+	global_command_encoder = wgpuDeviceCreateCommandEncoder(webgpu_context->device, &encoder_desc);
 
-    if (!irradiance_texture) {
-        irradiance_texture = RendererStorage::get_texture("data/textures/environments/sky.hdr");
-    }
+	if (!irradiance_texture) {
+		irradiance_texture = RendererStorage::get_texture("data/textures/environments/sky.hdr");
+	}
 
-    quad_surface.create_quad(2.0f, 2.0f);
+	quad_surface.create_quad(2.0f, 2.0f);
 
-    init_gbuffers();
+	init_gbuffers();
 	init_deferred_light_buffer();
 
-    init_depth_buffers();
+	init_depth_buffers();
 
-    init_lighting_bind_group();
-    init_camera_bind_group();
+	init_lighting_bind_group();
+	init_camera_bind_group();
 
-    init_multisample_textures();
+	init_multisample_textures();
 
-    init_timestamp_queries();
+	init_timestamp_queries();
 
-    init_deferred_lightpass();
+	init_deferred_lightpass();
 	init_post_processing_textures();
 	init_gamma_pass();
 	init_compute_post_process(shaders::blur_compute::source, shaders::blur_compute::path, shaders::blur_compute::libraries, "box_blur");
-	init_render_post_process(shaders::black_and_white::source, shaders::black_and_white::path, shaders::black_and_white::libraries);
+	Uniform blur_params_uniform;
+	blur_level_buffer = webgpu_context->create_buffer(sizeof(blur_level), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst, &blur_level, "Blur_level");
+	blur_params_uniform.data = blur_level_buffer;
+	blur_params_uniform.binding = 0;
+	blur_params_uniform.buffer_size = sizeof(blur_level);
+	std::vector<Uniform*> unifroms;
+	unifroms.push_back(&blur_params_uniform);
+	WGPUBindGroup blur_bindgroup = webgpu_context->create_bind_group(unifroms, post_process_data[0].shader, 1);
+	post_process_data[0].add_bind_group(blur_bindgroup);
+    init_render_post_process(shaders::black_and_white::source, shaders::black_and_white::path, shaders::black_and_white::libraries);
 	init_compute_post_process(shaders::contrast_compute::source, shaders::contrast_compute::path, shaders::contrast_compute::libraries, "contrast_compute");
 
     init_post_process_bindgroups();
@@ -327,6 +335,12 @@ void Renderer::clean()
 	wgpuBindGroupRelease(post_process_a_to_gamma_bindgroup);
 	wgpuBindGroupRelease(post_process_b_to_gamma_bindgroup);
 
+    for (int i = 0; i<num_declared_post_process_passes; i++) {
+		for (WGPUBindGroup bind_group : post_process_data[i].bindgroups) {
+            wgpuBindGroupRelease(bind_group);
+        }
+    }   
+    wgpuBufferRelease(blur_level_buffer);
     camera_uniform.destroy();
     camera_2d_uniform.destroy();
     shadow_camera_uniform.destroy();
@@ -489,8 +503,7 @@ void Renderer::render()
         for (int i = 0; i < num_declared_post_process_passes; i++) {
 			int index = post_process_data[i].index;
 			if (post_process_data[index].activated) {
-				std::vector<WGPUBindGroup> bind_groups = {};
-				render_post_processing(post_process_data[index].pipeline, bind_groups, post_process_data[index].shader->get_path());
+				render_post_processing(post_process_data[index].pipeline, post_process_data[index].bindgroups, post_process_data[index].shader->get_path());
 			}
         }
 		/*
@@ -2288,3 +2301,5 @@ glm::vec3 Renderer::get_camera_front()
     Camera* camera = get_camera();
     return glm::normalize(camera->get_center() - camera->get_eye());
 }
+
+
