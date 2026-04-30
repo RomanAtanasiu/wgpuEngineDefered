@@ -138,16 +138,22 @@ protected:
 		Shader *shader = nullptr;
 		Pipeline* pipeline = nullptr;
 		bool activated = false;
-		int index;
-
+		//int index;
+		int id;
         std::vector<WGPUBindGroup> bindgroups;
 		void add_bind_group(WGPUBindGroup bind_group) {bindgroups.push_back(bind_group);}
 	};
-
+	//std::list<int> post_processing_index;
+	//std::array<int, MAX_POST_PROCESS_PASS> post_process_index;
+	int post_process_index[MAX_POST_PROCESS_PASS];
     sPostProcessData post_process_data[MAX_POST_PROCESS_PASS];
+	int smallest_id = 0;
+	void update_smallest_id();
+	int num_declared_post_process_passes = 0;
+
 	WGPUBuffer blur_level_buffer = nullptr;
 	int32_t blur_level = 5;
-	int num_declared_post_process_passes = 0;
+
 	Shader *gbuffer_lighting_pass_shader = nullptr;
 	Shader* gamma_pass_shader = nullptr;
 
@@ -354,9 +360,9 @@ public:
 	void init_gamma_pass();
 
 	void init_compute_post_process(const char *source, const std::string &name,
-			const std::vector<std::string> &libraries, const std::string &entry_point);
+			const std::vector<std::string> &libraries, const std::string &entry_point, int* id = nullptr);
 	void init_render_post_process(const char *source, const std::string &name,
-			const std::vector<std::string> &libraries);
+			const std::vector<std::string> &libraries, int* id = nullptr);
     void init_deferred_lightpass();
 	void init_post_processing_textures();
     void init_depth_buffers();
@@ -471,10 +477,19 @@ public:
 
 
     int get_num_of_post_process_passes() { return num_declared_post_process_passes; }
-	bool get_post_process_enabled(int index) { return post_process_data[index].activated; }
-	int get_post_process_index(int i) { return post_process_data[i].index; }
-	void set_post_process_enabled(int index, bool value) {  post_process_data[index].activated = value; }
-	std::string get_shader_name_post_process(int index);
+
+    int get_post_process_index_from_id(int id);
+	int get_post_process_id_from_index(int index) const { return post_process_index[index]; }
+
+    bool get_post_process_enabled_from_index(int index) { return post_process_data[index].activated; }
+	bool get_post_process_enabled_from_id(int id) { return post_process_data[get_post_process_index_from_id(id)].activated; }
+
+    void set_post_process_enabled_from_index(int index, bool value) {  post_process_data[index].activated = value; }
+	void set_post_process_enabled_from_id(int id, bool value) { post_process_data[get_post_process_index_from_id(id)].activated = value; }
+
+    std::string get_shader_name_post_process_from_index(int index);
+	std::string get_shader_name_post_process_from_id(int id);
+
 	void swap_post_process(int a, int b);
 	int* get_blur_level() { return &blur_level; }
     void set_blur_level(int level) {

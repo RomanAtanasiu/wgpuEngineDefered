@@ -740,24 +740,25 @@ void Engine::render_default_gui()
 
 			ImGui::Text("Post-processing passes:");
 			for (int i = 0; i < renderer->get_num_of_post_process_passes(); i++) {
-				int idx = renderer->get_post_process_index(i); 
 
-				bool enabled = renderer->get_post_process_enabled(idx); 
-				std::string shader_name = renderer->get_shader_name_post_process(idx); 
+                int id = renderer->get_post_process_id_from_index(i);
+				bool enabled = renderer->get_post_process_enabled_from_id(id); 
+				std::string shader_name = renderer->get_shader_name_post_process_from_id(id); 
 
 				if (ImGui::Checkbox(shader_name.c_str(), &enabled)) {
-					renderer->set_post_process_enabled(idx, enabled); 
+					renderer->set_post_process_enabled_from_id(id, enabled); 
 				}
 
 				for (int j = 0; j < renderer->get_num_of_post_process_passes(); j++) {
+
 					if (i != j) {
-						int jdx = renderer->get_post_process_index(j);
-						std::string name = renderer->get_shader_name_post_process(jdx);
-						std::string button_id = name + "##swap_" + std::to_string(i) + "_" + std::to_string(j);
+						int jd = renderer->get_post_process_id_from_index(j);
+						std::string name = renderer->get_shader_name_post_process_from_id(jd);
+						std::string button_id = name + "##swap_" + std::to_string(i) + "_" + std::to_string(jd);
 
 						if (ImGui::SmallButton(button_id.c_str())) {
-							swap_a = i; 
-							swap_b = j;
+							swap_a = id;
+							swap_b = jd;
 						}
 					}
 				}
