@@ -133,12 +133,10 @@ protected:
     WGPUBindGroup gbuffers_resolve_bindgroup = nullptr;
 	WGPUBindGroup post_process_a_to_gamma_bindgroup = nullptr;
 	WGPUBindGroup post_process_b_to_gamma_bindgroup = nullptr;
-
     struct sPostProcessData {
 		Shader *shader = nullptr;
 		Pipeline* pipeline = nullptr;
 		bool activated = false;
-		//int index;
 		int id;
         std::vector<WGPUBindGroup> bindgroups;
 		void add_bind_group(WGPUBindGroup bind_group) {bindgroups.push_back(bind_group);}
@@ -478,14 +476,20 @@ public:
 
     int get_num_of_post_process_passes() { return num_declared_post_process_passes; }
 
+    //index is positon in post_process_index[] (order of render passes)
+    //id is id un post_process_data
+    //i is position in post_process_data[]
+
     int get_post_process_index_from_id(int id);
 	int get_post_process_id_from_index(int index) const { return post_process_index[index]; }
+	int get_post_process_i_from_id(int id);
+	//int get_post_process_i_from_index(int index) { return get_post_process_i_from_id(); }
 
-    bool get_post_process_enabled_from_index(int index) { return post_process_data[index].activated; }
-	bool get_post_process_enabled_from_id(int id) { return post_process_data[get_post_process_index_from_id(id)].activated; }
+    bool get_post_process_enabled_from_index(int index) { return post_process_data[get_post_process_i_from_id(get_post_process_id_from_index(index))].activated; }
+	bool get_post_process_enabled_from_id(int id) { return post_process_data[get_post_process_i_from_id(id)].activated; }
 
-    void set_post_process_enabled_from_index(int index, bool value) {  post_process_data[index].activated = value; }
-	void set_post_process_enabled_from_id(int id, bool value) { post_process_data[get_post_process_index_from_id(id)].activated = value; }
+    void set_post_process_enabled_from_index(int index, bool value) { post_process_data[get_post_process_i_from_id(get_post_process_id_from_index(index))].activated = value; }
+	void set_post_process_enabled_from_id(int id, bool value) { post_process_data[get_post_process_i_from_id(id)].activated = value; }
 
     std::string get_shader_name_post_process_from_index(int index);
 	std::string get_shader_name_post_process_from_id(int id);

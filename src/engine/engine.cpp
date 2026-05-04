@@ -764,6 +764,14 @@ void Engine::render_default_gui()
 				}
 				ImGui::Separator();
 			}
+			ImGui::Text("Order of post_process passes:");
+
+			for (int i = 0; i < renderer->get_num_of_post_process_passes(); i++) {
+				int id = renderer->get_post_process_id_from_index(i);
+				std::string name = renderer->get_shader_name_post_process_from_index(i);
+				ImGui::Text("Post-process %d: %s", i + 1, name.c_str());
+			}
+
 			int* a = renderer->get_blur_level();
             ImGui::SliderInt("Blur Level", a, 0, 10);
 			renderer->set_blur_level(*a);

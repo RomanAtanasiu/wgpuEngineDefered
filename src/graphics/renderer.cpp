@@ -513,7 +513,7 @@ void Renderer::render()
 			}
         }
         */
-
+		post_processing_bool = true;
         for (int actual_id : post_process_index) {
 			for (auto post_process : post_process_data) {
 				if (post_process.id == actual_id && post_process.activated) {
@@ -2148,19 +2148,31 @@ void Renderer::set_irradiance_texture(Texture* texture)
 }
 
 int Renderer::get_post_process_index_from_id(int id) {
-	int* finded = std::find(post_process_index, post_process_index + num_declared_post_process_passes, id);
-	if (finded != (post_process_index + num_declared_post_process_passes))
+	auto finded = std::find(post_process_index, post_process_index + num_declared_post_process_passes, id);
+	if (finded == (post_process_index + num_declared_post_process_passes))
 		assert("no valid id");
-	return *(finded);
+	return std::distance(post_process_index, finded);
+    //return *(finded);
+}
+
+int Renderer::get_post_process_i_from_id(int id) {
+    for (int i = 0; i < get_num_of_post_process_passes(); i++) {
+        if (id == post_process_data[i].id) {
+            return i;
+        }
+
+    }
+	return -1;
 }
 
 std::string Renderer::get_shader_name_post_process_from_index(int index) {
 
-    return post_process_data[index].shader->get_path();
+    return post_process_data[get_post_process_i_from_id(get_post_process_id_from_index(index))].shader->get_path();
 }
 
 std::string Renderer::get_shader_name_post_process_from_id(int id) {
-	return post_process_data[get_post_process_index_from_id(id)].shader->get_path();
+	int index = get_post_process_i_from_id(id);
+	return post_process_data[index].shader->get_path();
 }
 
 void Renderer::swap_post_process(int id_a, int id_b) {
