@@ -56,6 +56,7 @@ struct sRendererConfiguration {
 #endif
     }
 };
+typedef uint8_t post_process_id;
 
 class Renderer {
 
@@ -133,21 +134,22 @@ protected:
     WGPUBindGroup gbuffers_resolve_bindgroup = nullptr;
 	WGPUBindGroup post_process_a_to_gamma_bindgroup = nullptr;
 	WGPUBindGroup post_process_b_to_gamma_bindgroup = nullptr;
+
     struct sPostProcessData {
 		Shader *shader = nullptr;
 		Pipeline* pipeline = nullptr;
 		bool activated = false;
-		int id;
+		post_process_id id = 0;//from 0 to 255
         std::vector<WGPUBindGroup> bindgroups;
 		void add_bind_group(WGPUBindGroup bind_group) {bindgroups.push_back(bind_group);}
-	};
-	//std::list<int> post_processing_index;
-	//std::array<int, MAX_POST_PROCESS_PASS> post_process_index;
+	} post_process_data[MAX_POST_PROCESS_PASS];
+
+    //array of index of the positions of post_process_data in render order
 	int post_process_index[MAX_POST_PROCESS_PASS];
-    sPostProcessData post_process_data[MAX_POST_PROCESS_PASS];
-	int smallest_id = 0;
-	void update_smallest_id();
 	int num_declared_post_process_passes = 0;
+
+	post_process_id get_next_post_process_id();
+
 
 	WGPUBuffer blur_level_buffer = nullptr;
 	int32_t blur_level = 5;
@@ -357,10 +359,10 @@ public:
 	void init_deferred_light_buffer();
 	void init_gamma_pass();
 
-	void init_compute_post_process(const char *source, const std::string &name,
-			const std::vector<std::string> &libraries, const std::string &entry_point, int* id = nullptr);
-	void init_render_post_process(const char *source, const std::string &name,
-			const std::vector<std::string> &libraries, int* id = nullptr);
+	post_process_id init_compute_post_process(const char *source, const std::string &name,
+			const std::vector<std::string> &libraries, const std::string &entry_point);
+	post_process_id init_render_post_process(const char *source, const std::string &name,
+			const std::vector<std::string> &libraries);
     void init_deferred_lightpass();
 	void init_post_processing_textures();
     void init_depth_buffers();
@@ -475,26 +477,14 @@ public:
 
 
     int get_num_of_post_process_passes() { return num_declared_post_process_passes; }
+	bool get_post_process_activated(post_process_id id);
+	void set_post_process_activated(post_process_id id, bool value);
+	std::string get_shader_name_post_process(post_process_id id);
 
-    //index is positon in post_process_index[] (order of render passes)
-    //id is id un post_process_data
-    //i is position in post_process_data[]
+	void swap_post_process(post_process_id id_a, post_process_id id_b);
 
-    int get_post_process_index_from_id(int id);
-	int get_post_process_id_from_index(int index) const { return post_process_index[index]; }
-	int get_post_process_i_from_id(int id);
-	//int get_post_process_i_from_index(int index) { return get_post_process_i_from_id(); }
+    std::vector<post_process_id> get_post_process_ids_ordered();
 
-    bool get_post_process_enabled_from_index(int index) { return post_process_data[get_post_process_i_from_id(get_post_process_id_from_index(index))].activated; }
-	bool get_post_process_enabled_from_id(int id) { return post_process_data[get_post_process_i_from_id(id)].activated; }
-
-    void set_post_process_enabled_from_index(int index, bool value) { post_process_data[get_post_process_i_from_id(get_post_process_id_from_index(index))].activated = value; }
-	void set_post_process_enabled_from_id(int id, bool value) { post_process_data[get_post_process_i_from_id(id)].activated = value; }
-
-    std::string get_shader_name_post_process_from_index(int index);
-	std::string get_shader_name_post_process_from_id(int id);
-
-	void swap_post_process(int a, int b);
 	int* get_blur_level() { return &blur_level; }
     void set_blur_level(int level) {
 		blur_level = level;

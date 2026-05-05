@@ -696,7 +696,7 @@ void Engine::render_default_gui()
                 Renderer::instance->set_frustum_camera_paused(pause_frustum_culling_camera);
             }
 
-            // TODO(Juan): Deferred debug UI
+            //Deferred debug UI
 			bool showing_gbuffers_active =
 					renderer->get_show_gbuffers() != 0;
 			bool showing_depthbuffer_active = renderer->get_show_depthbuffer() != 0;
@@ -735,11 +735,37 @@ void Engine::render_default_gui()
 			ImGui::Separator();
 
 
-            int swap_a = -1;
-			int swap_b = -1;
-
+            post_process_id swap_a;
+			post_process_id swap_b;
+			bool swap = false;
 			ImGui::Text("Post-processing passes:");
-			for (int i = 0; i < renderer->get_num_of_post_process_passes(); i++) {
+
+            std::vector<post_process_id> ids = renderer->get_post_process_ids_ordered();
+
+            for (auto id : ids) {
+				bool enabled = renderer->get_post_process_activated(id);
+				std::string shader_name = renderer->get_shader_name_post_process(id); 
+				if (ImGui::Checkbox(shader_name.c_str(), &enabled)) {
+					renderer->set_post_process_activated(id, enabled);
+				}
+
+                for (auto id_swap : ids) {
+					if (id != id_swap) {
+						std::string shader_name_swap = renderer->get_shader_name_post_process(id_swap); 
+                        std::string button_id = shader_name_swap + "##swap_" + shader_name;
+
+						if (ImGui::SmallButton(button_id.c_str())) {
+							swap_a = id;
+							swap_b = id_swap;
+							swap = true;
+						}
+                    }
+
+                }
+            }
+
+
+			/* for (int i = 0; i < renderer->get_num_of_post_process_passes(); i++) {
 
                 int id = renderer->get_post_process_id_from_index(i);
 				bool enabled = renderer->get_post_process_enabled_from_id(id); 
@@ -763,21 +789,14 @@ void Engine::render_default_gui()
 					}
 				}
 				ImGui::Separator();
-			}
-			ImGui::Text("Order of post_process passes:");
-
-			for (int i = 0; i < renderer->get_num_of_post_process_passes(); i++) {
-				int id = renderer->get_post_process_id_from_index(i);
-				std::string name = renderer->get_shader_name_post_process_from_index(i);
-				ImGui::Text("Post-process %d: %s", i + 1, name.c_str());
-			}
+			}*/
 
 			int* a = renderer->get_blur_level();
             ImGui::SliderInt("Blur Level", a, 0, 10);
 			renderer->set_blur_level(*a);
 			
 
-			if (swap_a != -1) 
+			if (swap) 
 				renderer->swap_post_process(swap_a, swap_b);
             ImGui::EndTabItem();
         }
