@@ -475,15 +475,23 @@ public:
 
     int get_num_of_gbuffers() { return webgpu_context->gbuffer_format.GBUFFER_COUNT; }
 
+    //post processing API
+
+
+	post_process_id add_post_process_pass_compute(Shader* shader, const std::string &entry_point, std::vector<WGPUBindGroup> bingroups = {});
+	post_process_id add_post_process_pass_render(Shader* shader, std::vector<WGPUBindGroup> bindgroups = {});
+
 
     int get_num_of_post_process_passes() { return num_declared_post_process_passes; }
 	bool get_post_process_activated(post_process_id id);
 	void set_post_process_activated(post_process_id id, bool value);
 	std::string get_shader_name_post_process(post_process_id id);
+	Shader* get_shader_post_process(post_process_id id);
 
 	void swap_post_process(post_process_id id_a, post_process_id id_b);
 
     std::vector<post_process_id> get_post_process_ids_ordered();
+    //end post processing API
 
 	int* get_blur_level() { return &blur_level; }
     void set_blur_level(int level) {

@@ -1296,7 +1296,6 @@ post_process_id Renderer::init_compute_post_process(const char *source, const st
 }
 
 post_process_id Renderer::init_render_post_process(const char *source, const std::string &name, const std::vector<std::string> &libraries) {
-	
 	WGPUColorTargetState color_target = {};
 	//post_process format
 	color_target.format = WGPUTextureFormat_RGBA32Float;
@@ -1317,6 +1316,48 @@ post_process_id Renderer::init_render_post_process(const char *source, const std
 
 
     return id;
+}
+
+post_process_id Renderer::add_post_process_pass_compute(Shader* shader, const std::string &entry_point, std::vector<WGPUBindGroup> bindgroups) {
+	post_process_data[num_declared_post_process_passes].shader = shader;
+	std::vector<WGPUConstantEntry> constants;
+	post_process_data[num_declared_post_process_passes].pipeline = new Pipeline();
+	post_process_data[num_declared_post_process_passes].pipeline->create_compute(post_process_data[num_declared_post_process_passes].shader, entry_point, constants);
+	post_process_data[num_declared_post_process_passes].activated = true;
+
+	post_process_id id = get_next_post_process_id();
+	post_process_data[num_declared_post_process_passes].id = id;
+
+    post_process_data[num_declared_post_process_passes].bindgroups = bindgroups;
+
+	post_process_index[num_declared_post_process_passes] = num_declared_post_process_passes;
+	num_declared_post_process_passes++;
+
+	return id;
+}
+
+post_process_id Renderer::add_post_process_pass_render(Shader *shader, std::vector<WGPUBindGroup> bindgroups) {
+	WGPUColorTargetState color_target = {};
+	//post_process format
+	color_target.format = WGPUTextureFormat_RGBA32Float;
+	color_target.blend = nullptr;
+	color_target.writeMask = WGPUColorWriteMask_All;
+
+	post_process_data[num_declared_post_process_passes].shader = shader;
+	post_process_data[num_declared_post_process_passes].pipeline = new Pipeline();
+	post_process_data[num_declared_post_process_passes].pipeline->create_render(post_process_data[num_declared_post_process_passes].shader, color_target, { .use_depth = false, .allow_msaa = false });
+	post_process_data[num_declared_post_process_passes].activated = true;
+
+	post_process_id id = get_next_post_process_id();
+	post_process_data[num_declared_post_process_passes].id = id;
+
+    post_process_data[num_declared_post_process_passes].bindgroups = bindgroups;
+
+
+	post_process_index[num_declared_post_process_passes] = num_declared_post_process_passes;
+	num_declared_post_process_passes++;
+
+	return id;
 }
 
 void Renderer::init_deferred_lightpass() {
@@ -2134,6 +2175,16 @@ std::string Renderer::get_shader_name_post_process(post_process_id id) {
 	}
 	spdlog::warn("no ids match in get_shader_name_post_process");
 	return "";
+}
+
+Shader* Renderer::get_shader_post_process(post_process_id id) {
+	for (int i = 0; i < num_declared_post_process_passes; i++) {
+		if (post_process_data[i].id == id) {
+			return post_process_data[i].shader;
+		}
+	}
+	spdlog::warn("no ids match in get_shader_post_process");
+	return nullptr;
 }
 
 bool Renderer::get_post_process_activated(post_process_id id) {
