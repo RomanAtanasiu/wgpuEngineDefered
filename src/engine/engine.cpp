@@ -735,69 +735,6 @@ void Engine::render_default_gui()
 			ImGui::Separator();
 
 
-            post_process_id swap_a;
-			post_process_id swap_b;
-			bool swap = false;
-			ImGui::Text("Post-processing passes:");
-
-            std::vector<post_process_id> ids = renderer->get_post_process_ids_ordered();
-
-            for (auto id : ids) {
-				bool enabled = renderer->get_post_process_activated(id);
-				std::string shader_name = renderer->get_shader_name_post_process(id); 
-				if (ImGui::Checkbox(shader_name.c_str(), &enabled)) {
-					renderer->set_post_process_activated(id, enabled);
-				}
-
-                for (auto id_swap : ids) {
-					if (id != id_swap) {
-						std::string shader_name_swap = renderer->get_shader_name_post_process(id_swap); 
-                        std::string button_id = shader_name_swap + "##swap_" + shader_name;
-
-						if (ImGui::SmallButton(button_id.c_str())) {
-							swap_a = id;
-							swap_b = id_swap;
-							swap = true;
-						}
-                    }
-
-                }
-            }
-
-
-			/* for (int i = 0; i < renderer->get_num_of_post_process_passes(); i++) {
-
-                int id = renderer->get_post_process_id_from_index(i);
-				bool enabled = renderer->get_post_process_enabled_from_id(id); 
-				std::string shader_name = renderer->get_shader_name_post_process_from_id(id); 
-
-				if (ImGui::Checkbox(shader_name.c_str(), &enabled)) {
-					renderer->set_post_process_enabled_from_id(id, enabled); 
-				}
-
-				for (int j = 0; j < renderer->get_num_of_post_process_passes(); j++) {
-
-					if (i != j) {
-						int jd = renderer->get_post_process_id_from_index(j);
-						std::string name = renderer->get_shader_name_post_process_from_id(jd);
-						std::string button_id = name + "##swap_" + std::to_string(i) + "_" + std::to_string(jd);
-
-						if (ImGui::SmallButton(button_id.c_str())) {
-							swap_a = id;
-							swap_b = jd;
-						}
-					}
-				}
-				ImGui::Separator();
-			}*/
-
-			int* a = renderer->get_blur_level();
-            ImGui::SliderInt("Blur Level", a, 0, 10);
-			renderer->set_blur_level(*a);
-			
-
-			if (swap) 
-				renderer->swap_post_process(swap_a, swap_b);
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();

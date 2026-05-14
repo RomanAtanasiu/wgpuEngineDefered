@@ -151,9 +151,6 @@ protected:
 	post_process_id get_next_post_process_id();
 
 
-	WGPUBuffer blur_level_buffer = nullptr;
-	int32_t blur_level = 5;
-
 	Shader *gbuffer_lighting_pass_shader = nullptr;
 	Shader* gamma_pass_shader = nullptr;
 
@@ -493,9 +490,5 @@ public:
     std::vector<post_process_id> get_post_process_ids_ordered();
     //end post processing API
 
-	int* get_blur_level() { return &blur_level; }
-    void set_blur_level(int level) {
-		blur_level = level;
-		webgpu_context->update_buffer(blur_level_buffer, 0, &blur_level, sizeof(int32_t));
-    }
+
 };

@@ -50,7 +50,6 @@
 #include "shaders/gamma_pass.wgsl.gen.h"
 #include "shaders/blur_compute.wgsl.gen.h"
 #include "shaders/black_and_white.wgsl.gen.h"
-#include "shaders/contrast_compute.wgsl.gen.h"
 
 #include "spdlog/spdlog.h"
 
@@ -216,24 +215,6 @@ int Renderer::post_initialize() {
 	init_post_processing_textures();
 	init_gamma_pass();
 
-
-	init_compute_post_process(shaders::blur_compute::source, shaders::blur_compute::path, shaders::blur_compute::libraries, "box_blur");
-	Uniform blur_params_uniform;
-	blur_level_buffer = webgpu_context->create_buffer(sizeof(blur_level), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst, &blur_level, "Blur_level");
-	blur_params_uniform.data = blur_level_buffer;
-	blur_params_uniform.binding = 0;
-	blur_params_uniform.buffer_size = sizeof(blur_level);
-	std::vector<Uniform*> unifroms;
-	unifroms.push_back(&blur_params_uniform);
-	WGPUBindGroup blur_bindgroup = webgpu_context->create_bind_group(unifroms, post_process_data[0].shader, 1);
-	post_process_data[0].add_bind_group(blur_bindgroup);
-
-
-    init_render_post_process(shaders::black_and_white::source, shaders::black_and_white::path, shaders::black_and_white::libraries);
-
-
-    init_compute_post_process(shaders::contrast_compute::source, shaders::contrast_compute::path, shaders::contrast_compute::libraries, "contrast_compute");
-
     init_post_process_bindgroups();
 
 
@@ -341,12 +322,8 @@ void Renderer::clean()
 	wgpuBindGroupRelease(post_process_a_to_gamma_bindgroup);
 	wgpuBindGroupRelease(post_process_b_to_gamma_bindgroup);
 
-    for (int i = 0; i<num_declared_post_process_passes; i++) {
-		for (WGPUBindGroup bind_group : post_process_data[i].bindgroups) {
-            wgpuBindGroupRelease(bind_group);
-        }
-    }   
-    wgpuBufferRelease(blur_level_buffer);
+
+
     camera_uniform.destroy();
     camera_2d_uniform.destroy();
     shadow_camera_uniform.destroy();
@@ -386,9 +363,7 @@ void Renderer::clean()
     delete gbuffer_lighting_pass_shader;
 	delete gamma_pass_shader;
 	//delete[] post_process_data.shader;
-	for (int i = 0; i<num_declared_post_process_passes; i++) {
-		delete post_process_data[i].shader;
-    }
+
 
 
 #ifndef __EMSCRIPTEN__
