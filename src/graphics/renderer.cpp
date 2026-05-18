@@ -484,7 +484,10 @@ void Renderer::render()
 		for (int i = 0; i < num_declared_post_process_passes; i++) {
 			int j = post_process_index[i];
 			if (post_process_data[j].activated) {
-				render_post_processing(post_process_data[j].pipeline, post_process_data[j].bindgroups, post_process_data[j].shader->get_path());
+				if (post_process_data[j].pipeline->is_compute_pipeline()) 
+					render_post_processing_compute(post_process_data[j].pipeline, post_process_data[j].compute_workgroups, post_process_data[j].bindgroups, post_process_data[j].shader->get_path());
+				else
+                    render_post_processing(post_process_data[j].pipeline, post_process_data[j].bindgroups, post_process_data[j].shader->get_path());
 			}
         }
         
@@ -884,7 +887,7 @@ void Renderer::render_gamma_correction(WGPUTextureView framebuffer_view,
 
 
 
-post_process_id Renderer::get_next_post_process_id() {
+tPostProcess Renderer::get_next_post_process_id() {
     if (num_declared_post_process_passes == 0) 
 		return 1;
    
@@ -892,93 +895,91 @@ post_process_id Renderer::get_next_post_process_id() {
 }
 
 void Renderer::render_post_processing(Pipeline *pipeline, std::vector<WGPUBindGroup> extras, const std::string &pass_name) {
-	if (pipeline->is_compute_pipeline()) {
+        //Render pass pipeline
+   	WGPUTextureView target_view = post_processing_bool ? BufferB.texture_view : BufferA.texture_view;
 
-        WGPUComputePassDescriptor compute_pass_descriptor = {};
-       	WGPUComputePassEncoder compute_pass = wgpuCommandEncoderBeginComputePass(global_command_encoder, &compute_pass_descriptor);
-    #ifndef NDEBUG
-		    webgpu_context->push_debug_group(compute_pass, { pass_name.c_str(), WGPU_STRLEN });
-    #endif
-        {
+    WGPURenderPassColorAttachment render_attachment = {};
+	render_attachment.view = target_view;
+	render_attachment.loadOp = WGPULoadOp_Clear;
+	render_attachment.storeOp = WGPUStoreOp_Store;
+	render_attachment.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
+	render_attachment.clearValue = WGPUColor{ 0, 0, 0, clear_color.a };
 
-            pipeline->set(compute_pass);
-
-            WGPUBindGroup temporal = post_processing_bool ? post_processingAB: post_processingBA;
-
-            wgpuComputePassEncoderSetBindGroup(compute_pass, 0, temporal, 0, nullptr);
-			for (int i = 0; i < extras.size();i++) {
-                //for now, dynamic offset is alays 0
-				wgpuComputePassEncoderSetBindGroup(compute_pass, i+1, extras[i], 0, nullptr);
-            }
-			wgpuComputePassEncoderDispatchWorkgroups(compute_pass, webgpu_context->gbuffer_format.width / 8, webgpu_context->gbuffer_format.height / 8, 1);
-        }
-    #ifndef NDEBUG
-		    webgpu_context->pop_debug_group(compute_pass);
-    #endif
-			wgpuComputePassEncoderEnd(compute_pass);
-			wgpuComputePassEncoderRelease(compute_pass);
-	}
-
-    //Render pass pipeline
-    else
-
-    {
-		    WGPUTextureView target_view = post_processing_bool ? BufferB.texture_view : BufferA.texture_view;
-
-            WGPURenderPassColorAttachment render_attachment = {};
-		    render_attachment.view = target_view;
-			render_attachment.loadOp = WGPULoadOp_Clear;
-			render_attachment.storeOp = WGPUStoreOp_Store;
-			render_attachment.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
-			render_attachment.clearValue = WGPUColor{ 0, 0, 0, clear_color.a };
-
-			WGPURenderPassDescriptor render_pass_descr = {};
-			render_pass_descr.colorAttachmentCount = 1u;
-			render_pass_descr.colorAttachments = &render_attachment;
-			render_pass_descr.depthStencilAttachment = nullptr;
-			render_pass_descr.label = { pass_name.c_str(), pass_name.length() };
+	WGPURenderPassDescriptor render_pass_descr = {};
+	render_pass_descr.colorAttachmentCount = 1u;
+	render_pass_descr.colorAttachments = &render_attachment;
+	render_pass_descr.depthStencilAttachment = nullptr;
+	render_pass_descr.label = { pass_name.c_str(), pass_name.length() };
         
 #ifndef __EMSCRIPTEN__
-			std::vector<WGPUPassTimestampWrites> timestampWrites(1);
-			timestampWrites[0].beginningOfPassWriteIndex = timestamp(global_command_encoder, (pass_name + "_pre_render").c_str());
-			timestampWrites[0].querySet = timestamp_query_set;
-			timestampWrites[0].endOfPassWriteIndex = timestamp(global_command_encoder, (pass_name + "_render").c_str());
+	std::vector<WGPUPassTimestampWrites> timestampWrites(1);
+	timestampWrites[0].beginningOfPassWriteIndex = timestamp(global_command_encoder, (pass_name + "_pre_render").c_str());
+	timestampWrites[0].querySet = timestamp_query_set;
+	timestampWrites[0].endOfPassWriteIndex = timestamp(global_command_encoder, (pass_name + "_render").c_str());
 
-			render_pass_descr.timestampWrites = timestampWrites.data();
+	render_pass_descr.timestampWrites = timestampWrites.data();
 #endif
-			// Create & fill the render pass (encoder)
-			WGPURenderPassEncoder render_pass = wgpuCommandEncoderBeginRenderPass(global_command_encoder, &render_pass_descr);
+	// Create & fill the render pass (encoder)
+	WGPURenderPassEncoder render_pass = wgpuCommandEncoderBeginRenderPass(global_command_encoder, &render_pass_descr);
 
 #ifndef NDEBUG
-			webgpu_context->push_debug_group(render_pass, { pass_name.c_str(), WGPU_STRLEN });
+	webgpu_context->push_debug_group(render_pass, { pass_name.c_str(), WGPU_STRLEN });
 #endif
 
-			{
-				pipeline->set(render_pass);
+	{
+		pipeline->set(render_pass);
 
-				WGPUBindGroup temporal = post_processing_bool ? post_processingAB_render : post_processingBA_render;
+		WGPUBindGroup temporal = post_processing_bool ? post_processingAB_render : post_processingBA_render;
 
-				wgpuRenderPassEncoderSetBindGroup(render_pass, 0, temporal, 0, nullptr);
-				for (int i = 0; i < extras.size(); i++) {
-					//for now, dynamic offset is alays 0
-					wgpuRenderPassEncoderSetBindGroup(render_pass, i + 1, extras[i], 0, nullptr);
-				}
-				// Set vertex buffer while encoding the render pass
-				wgpuRenderPassEncoderSetVertexBuffer(render_pass, 0, quad_surface.get_vertex_buffer(), 0, quad_surface.get_vertices_byte_size());
-				wgpuRenderPassEncoderSetVertexBuffer(render_pass, 1, quad_surface.get_vertex_data_buffer(), 0, quad_surface.get_interleaved_data_byte_size());
+		wgpuRenderPassEncoderSetBindGroup(render_pass, 0, temporal, 0, nullptr);
+		for (int i = 0; i < extras.size(); i++) {
+			//for now, dynamic offset is alays 0
+			wgpuRenderPassEncoderSetBindGroup(render_pass, i + 1, extras[i], 0, nullptr);
+		}
+		// Set vertex buffer while encoding the render pass
+		wgpuRenderPassEncoderSetVertexBuffer(render_pass, 0, quad_surface.get_vertex_buffer(), 0, quad_surface.get_vertices_byte_size());
+		wgpuRenderPassEncoderSetVertexBuffer(render_pass, 1, quad_surface.get_vertex_data_buffer(), 0, quad_surface.get_interleaved_data_byte_size());
 
-				wgpuRenderPassEncoderDraw(render_pass, quad_surface.get_vertex_count(), 1, 0, 0);
+		wgpuRenderPassEncoderDraw(render_pass, quad_surface.get_vertex_count(), 1, 0, 0);
 
-			}
+	}
 
 #ifndef NDEBUG
-			webgpu_context->pop_debug_group(render_pass);
+	webgpu_context->pop_debug_group(render_pass);
 #endif
 
-			wgpuRenderPassEncoderEnd(render_pass);
-			wgpuRenderPassEncoderRelease(render_pass);
+	wgpuRenderPassEncoderEnd(render_pass);
+	wgpuRenderPassEncoderRelease(render_pass);
+
+    
+	post_processing_bool = !post_processing_bool;
+}
+
+void Renderer::render_post_processing_compute(Pipeline *pipeline,int workgroups[3] ,std::vector<WGPUBindGroup> extras, const std::string &pass_name) {
+    WGPUComputePassDescriptor compute_pass_descriptor = {};
+    WGPUComputePassEncoder compute_pass = wgpuCommandEncoderBeginComputePass(global_command_encoder, &compute_pass_descriptor);
+    #ifndef NDEBUG
+    webgpu_context->push_debug_group(compute_pass, { pass_name.c_str(), WGPU_STRLEN });
+    #endif
+    {
+	    pipeline->set(compute_pass);
+
+	    WGPUBindGroup temporal = post_processing_bool ? post_processingAB : post_processingBA;
+
+	    wgpuComputePassEncoderSetBindGroup(compute_pass, 0, temporal, 0, nullptr);
+	    for (int i = 0; i < extras.size(); i++) {
+		    //for now, dynamic offset is alays 0
+		    wgpuComputePassEncoderSetBindGroup(compute_pass, i + 1, extras[i], 0, nullptr);
+	    }
+	    //wgpuComputePassEncoderDispatchWorkgroups(compute_pass, webgpu_context->gbuffer_format.width / 8, webgpu_context->gbuffer_format.height / 8, 1);
+		wgpuComputePassEncoderDispatchWorkgroups(compute_pass, workgroups[0], workgroups[1], workgroups[2]);
 
     }
+    #ifndef NDEBUG
+    webgpu_context->pop_debug_group(compute_pass);
+    #endif
+    wgpuComputePassEncoderEnd(compute_pass);
+    wgpuComputePassEncoderRelease(compute_pass);
 	post_processing_bool = !post_processing_bool;
 }
 
@@ -1253,7 +1254,7 @@ void Renderer::init_post_processing_textures() {
 }
 
 
-post_process_id Renderer::init_compute_post_process(const char *source, const std::string &name, const std::vector<std::string> &libraries, const std::string &entry_point) {
+tPostProcess Renderer::init_compute_post_process(const char *source, const std::string &name, const std::vector<std::string> &libraries, const std::string &entry_point) {
 	post_process_data[num_declared_post_process_passes].shader =
         RendererStorage::get_shader_from_source(source, name, libraries);
 	std::vector<WGPUConstantEntry> constants;
@@ -1261,7 +1262,7 @@ post_process_id Renderer::init_compute_post_process(const char *source, const st
 	post_process_data[num_declared_post_process_passes].pipeline->create_compute(post_process_data[num_declared_post_process_passes].shader, entry_point, constants);
 	post_process_data[num_declared_post_process_passes].activated = true;
 
-    post_process_id id = get_next_post_process_id();
+    tPostProcess id = get_next_post_process_id();
 	post_process_data[num_declared_post_process_passes].id = id;
 	
 	post_process_index[num_declared_post_process_passes] = num_declared_post_process_passes;
@@ -1270,7 +1271,7 @@ post_process_id Renderer::init_compute_post_process(const char *source, const st
     return id;
 }
 
-post_process_id Renderer::init_render_post_process(const char *source, const std::string &name, const std::vector<std::string> &libraries) {
+tPostProcess Renderer::init_render_post_process(const char *source, const std::string &name, const std::vector<std::string> &libraries) {
 	WGPUColorTargetState color_target = {};
 	//post_process format
 	color_target.format = WGPUTextureFormat_RGBA32Float;
@@ -1283,7 +1284,7 @@ post_process_id Renderer::init_render_post_process(const char *source, const std
 	post_process_data[num_declared_post_process_passes].pipeline->create_render(post_process_data[num_declared_post_process_passes].shader, color_target, { .use_depth = false, .allow_msaa = false });
 	post_process_data[num_declared_post_process_passes].activated = true;
 
-    post_process_id id = get_next_post_process_id();
+    tPostProcess id = get_next_post_process_id();
 	post_process_data[num_declared_post_process_passes].id = id;
 	
 	post_process_index[num_declared_post_process_passes] = num_declared_post_process_passes;
@@ -1293,14 +1294,18 @@ post_process_id Renderer::init_render_post_process(const char *source, const std
     return id;
 }
 
-post_process_id Renderer::add_post_process_pass_compute(Shader* shader, const std::string &entry_point, std::vector<WGPUBindGroup> bindgroups) {
+tPostProcess Renderer::post_process_add_compute_pass(Shader *shader, const std::string &entry_point, int workgroups[3], std::vector<WGPUBindGroup> bindgroups) {
 	post_process_data[num_declared_post_process_passes].shader = shader;
 	std::vector<WGPUConstantEntry> constants;
 	post_process_data[num_declared_post_process_passes].pipeline = new Pipeline();
 	post_process_data[num_declared_post_process_passes].pipeline->create_compute(post_process_data[num_declared_post_process_passes].shader, entry_point, constants);
 	post_process_data[num_declared_post_process_passes].activated = true;
 
-	post_process_id id = get_next_post_process_id();
+    for (int i = 0; i < 3; ++i) {
+		post_process_data[num_declared_post_process_passes].compute_workgroups[i] = workgroups[i];
+	}
+
+	tPostProcess id = get_next_post_process_id();
 	post_process_data[num_declared_post_process_passes].id = id;
 
     post_process_data[num_declared_post_process_passes].bindgroups = bindgroups;
@@ -1311,7 +1316,7 @@ post_process_id Renderer::add_post_process_pass_compute(Shader* shader, const st
 	return id;
 }
 
-post_process_id Renderer::add_post_process_pass_render(Shader *shader, std::vector<WGPUBindGroup> bindgroups) {
+tPostProcess Renderer::post_process_add_render_pass(Shader *shader, std::vector<WGPUBindGroup> bindgroups) {
 	WGPUColorTargetState color_target = {};
 	//post_process format
 	color_target.format = WGPUTextureFormat_RGBA32Float;
@@ -1323,7 +1328,7 @@ post_process_id Renderer::add_post_process_pass_render(Shader *shader, std::vect
 	post_process_data[num_declared_post_process_passes].pipeline->create_render(post_process_data[num_declared_post_process_passes].shader, color_target, { .use_depth = false, .allow_msaa = false });
 	post_process_data[num_declared_post_process_passes].activated = true;
 
-	post_process_id id = get_next_post_process_id();
+	tPostProcess id = get_next_post_process_id();
 	post_process_data[num_declared_post_process_passes].id = id;
 
     post_process_data[num_declared_post_process_passes].bindgroups = bindgroups;
@@ -2142,47 +2147,47 @@ void Renderer::set_irradiance_texture(Texture* texture)
 
 
 
-std::string Renderer::get_shader_name_post_process(post_process_id id) {
+std::string Renderer::post_process_get_shader_name(tPostProcess id) {
 	for (int i = 0; i < num_declared_post_process_passes; i++) {
 		if (post_process_data[i].id == id) {
 			return post_process_data[i].shader->get_path();
 		}
 	}
-	spdlog::warn("no ids match in get_shader_name_post_process");
+	spdlog::warn("no ids match in post_process_get_shader_name");
 	return "";
 }
 
-Shader* Renderer::get_shader_post_process(post_process_id id) {
+Shader* Renderer::post_process_get_shader_by_id(tPostProcess id) {
 	for (int i = 0; i < num_declared_post_process_passes; i++) {
 		if (post_process_data[i].id == id) {
 			return post_process_data[i].shader;
 		}
 	}
-	spdlog::warn("no ids match in get_shader_post_process");
+	spdlog::warn("no ids match in post_process_get_shader_by_id");
 	return nullptr;
 }
 
-bool Renderer::get_post_process_activated(post_process_id id) {
+bool Renderer::post_process_is_activated(tPostProcess id) {
 	for (int i = 0; i < num_declared_post_process_passes; i++) {
 		if (post_process_data[i].id == id) {
 			return post_process_data[i].activated;
         }
     }
-	spdlog::warn("no ids match in get_post_process_activated");
+	spdlog::warn("no ids match in post_process_is_activated");
     return false;
 }
 
-void Renderer::set_post_process_activated(post_process_id id, bool value) {
+void Renderer::post_process_set_active(tPostProcess id, bool value) {
 	for (int i = 0; i < num_declared_post_process_passes; i++) {
 		if (post_process_data[i].id == id) {
 			post_process_data[i].activated = value;
 			return;
 		}
 	}
-	spdlog::warn("no ids match in set_post_process");
+	spdlog::warn("no ids match in post_process_set_active");
 }
 
-void Renderer::swap_post_process(post_process_id id_a, post_process_id id_b) {
+void Renderer::post_process_swap_passes(tPostProcess id_a, tPostProcess id_b) {
 	int index_a = -1;
 	int index_b = -1;
 	for (int i = 0; i<num_declared_post_process_passes; i++){
@@ -2196,15 +2201,15 @@ void Renderer::swap_post_process(post_process_id id_a, post_process_id id_b) {
 		}
     }
     if (index_a == -1 || index_b == -1) {
-		spdlog::warn("no ids match in swap_post_process");
+		spdlog::warn("no ids match in post_process_swap_passes");
 		return;
     }
 
     std::swap(post_process_index[index_a], post_process_index[index_b]);
 }
 
-std::vector<post_process_id> Renderer::get_post_process_ids_ordered() {
-	std::vector<post_process_id> ordered_ids = {};
+std::vector<tPostProcess> Renderer::post_process_get_ids_in_render_order() {
+	std::vector<tPostProcess> ordered_ids = {};
     for (int i = 0; i < num_declared_post_process_passes; i++) {
 		int j = post_process_index[i];
 		ordered_ids.push_back(post_process_data[j].id);

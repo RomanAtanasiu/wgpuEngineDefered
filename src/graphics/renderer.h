@@ -35,6 +35,8 @@ struct WebGPUContext;
 struct XRContext;
 struct sLightUniformData;
 
+typedef uint8_t tPostProcess;
+
 struct sRendererConfiguration {
     WGPULimits required_limits = {};
     std::vector<WGPUFeatureName> features;
@@ -56,7 +58,7 @@ struct sRendererConfiguration {
 #endif
     }
 };
-typedef uint8_t post_process_id;
+
 
 class Renderer {
 
@@ -137,18 +139,22 @@ protected:
 
     struct sPostProcessData {
 		Shader *shader = nullptr;
-		Pipeline* pipeline = nullptr;
+		Pipeline *pipeline = nullptr;
 		bool activated = false;
-		post_process_id id = 0;//from 0 to 255
-        std::vector<WGPUBindGroup> bindgroups;
-		void add_bind_group(WGPUBindGroup bind_group) {bindgroups.push_back(bind_group);}
-	} post_process_data[MAX_POST_PROCESS_PASS];
+		tPostProcess id = 0; //from 0 to 255
+		std::vector<WGPUBindGroup> bindgroups;
+
+		int compute_workgroups[3] = { 0, 0, 0 };
+
+		void add_bind_group(WGPUBindGroup bind_group) { bindgroups.push_back(bind_group); }
+	};
+	sPostProcessData post_process_data[MAX_POST_PROCESS_PASS];
 
     //array of index of the positions of post_process_data in render order
 	int post_process_index[MAX_POST_PROCESS_PASS];
 	int num_declared_post_process_passes = 0;
 
-	post_process_id get_next_post_process_id();
+	tPostProcess get_next_post_process_id();
 
 
 	Shader *gbuffer_lighting_pass_shader = nullptr;
@@ -160,7 +166,9 @@ protected:
 
     Uniform  gbuffer_sampler_uniform;
 
+    //render_post_processing is for quad and vs
     void render_post_processing(Pipeline *pipeline, std::vector<WGPUBindGroup> extras, const std::string &pass_name = "");
+	void render_post_processing_compute(Pipeline *pipeline, int workgroups[3], std::vector<WGPUBindGroup> extras, const std::string &pass_name = "");
 
 #ifndef __EMSCRIPTEN__
     RenderdocCapture* renderdoc_capture;
@@ -356,9 +364,9 @@ public:
 	void init_deferred_light_buffer();
 	void init_gamma_pass();
 
-	post_process_id init_compute_post_process(const char *source, const std::string &name,
+	tPostProcess init_compute_post_process(const char *source, const std::string &name,
 			const std::vector<std::string> &libraries, const std::string &entry_point);
-	post_process_id init_render_post_process(const char *source, const std::string &name,
+	tPostProcess init_render_post_process(const char *source, const std::string &name,
 			const std::vector<std::string> &libraries);
     void init_deferred_lightpass();
 	void init_post_processing_textures();
@@ -475,19 +483,19 @@ public:
     //post processing API
 
 
-	post_process_id add_post_process_pass_compute(Shader* shader, const std::string &entry_point, std::vector<WGPUBindGroup> bingroups = {});
-	post_process_id add_post_process_pass_render(Shader* shader, std::vector<WGPUBindGroup> bindgroups = {});
+	tPostProcess post_process_add_compute_pass(Shader *shader, const std::string &entry_point, int workgroups[3] , std::vector<WGPUBindGroup> bingroups = {});
+	tPostProcess post_process_add_render_pass(Shader* shader, std::vector<WGPUBindGroup> bindgroups = {});
 
 
-    int get_num_of_post_process_passes() { return num_declared_post_process_passes; }
-	bool get_post_process_activated(post_process_id id);
-	void set_post_process_activated(post_process_id id, bool value);
-	std::string get_shader_name_post_process(post_process_id id);
-	Shader* get_shader_post_process(post_process_id id);
+    int post_process_get_num_declared() { return num_declared_post_process_passes; }
+	bool post_process_is_activated(tPostProcess id);
+	void post_process_set_active(tPostProcess id, bool value);
+	std::string post_process_get_shader_name(tPostProcess id);
+	Shader* post_process_get_shader_by_id(tPostProcess id);
 
-	void swap_post_process(post_process_id id_a, post_process_id id_b);
+	void post_process_swap_passes(tPostProcess id_a, tPostProcess id_b);
 
-    std::vector<post_process_id> get_post_process_ids_ordered();
+    std::vector<tPostProcess> post_process_get_ids_in_render_order();
     //end post processing API
 
 
