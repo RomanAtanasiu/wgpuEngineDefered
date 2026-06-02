@@ -1,3 +1,4 @@
+#include tonemappers.wgsl
 
 
 @group(0) @binding(0) var in_texture: texture_2d<f32>;
@@ -34,8 +35,9 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
     var out: FragmentOutput;
     let screen_dims = textureDimensions(in_texture);
     let color = textureLoad(in_texture, vec2<i32>(in.uv * vec2<f32>(screen_dims)), 0);
-    let gamma = 2.2f;
-    out.color = vec4f(pow(color.rgb, vec3f(1.0f / gamma)), color.a);
+    var color_tonemapped: vec3f = tonemap_khronos_pbr_neutral(color.rgb);
 
+    let gamma = 2.2f;
+    out.color = vec4f(pow(color_tonemapped.rgb, vec3f(1.0f / gamma)), color.a);
     return out;
 }

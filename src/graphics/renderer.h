@@ -16,7 +16,7 @@
 #include <map>
 #include <string>
 
-#define MAX_LIGHTS 32u
+#define MAX_LIGHTS 128u
 #define SHADOW_MAP_SIZE 1024
 #define MAX_POST_PROCESS_PASS 10u
 
@@ -36,6 +36,10 @@ struct XRContext;
 struct sLightUniformData;
 
 typedef uint8_t tPostProcess;
+typedef enum {
+	AFTER_LIGHT_PASS,
+	BEFORE_GAMMA_PASS,
+} ePostProcessPositionRender;
 
 struct sRendererConfiguration {
     WGPULimits required_limits = {};
@@ -144,6 +148,8 @@ protected:
 		tPostProcess id = 0; //from 0 to 255
 		std::vector<WGPUBindGroup> bindgroups;
 
+        ePostProcessPositionRender position;
+
 		int compute_workgroups[3] = { 0, 0, 0 };
 
 		void add_bind_group(WGPUBindGroup bind_group) { bindgroups.push_back(bind_group); }
@@ -169,6 +175,7 @@ protected:
     //render_post_processing is for quad and vs
     void render_post_processing(Pipeline *pipeline, std::vector<WGPUBindGroup> extras, const std::string &pass_name = "");
 	void render_post_processing_compute(Pipeline *pipeline, int workgroups[3], std::vector<WGPUBindGroup> extras, const std::string &pass_name = "");
+	void render_post_processing_passes(ePostProcessPositionRender position);
 
 #ifndef __EMSCRIPTEN__
     RenderdocCapture* renderdoc_capture;
@@ -364,10 +371,7 @@ public:
 	void init_deferred_light_buffer();
 	void init_gamma_pass();
 
-	tPostProcess init_compute_post_process(const char *source, const std::string &name,
-			const std::vector<std::string> &libraries, const std::string &entry_point);
-	tPostProcess init_render_post_process(const char *source, const std::string &name,
-			const std::vector<std::string> &libraries);
+
     void init_deferred_lightpass();
 	void init_post_processing_textures();
     void init_depth_buffers();
@@ -483,8 +487,8 @@ public:
     //post processing API
 
 
-	tPostProcess post_process_add_compute_pass(Shader *shader, const std::string &entry_point, int workgroups[3] , std::vector<WGPUBindGroup> bingroups = {});
-	tPostProcess post_process_add_render_pass(Shader* shader, std::vector<WGPUBindGroup> bindgroups = {});
+	tPostProcess post_process_add_compute_pass(Shader *shader, ePostProcessPositionRender position, const std::string &entry_point, int workgroups[3], std::vector<WGPUBindGroup> bingroups = {});
+	tPostProcess post_process_add_render_pass(Shader *shader, ePostProcessPositionRender position, std::vector<WGPUBindGroup> bindgroups = {});
 
 
     int post_process_get_num_declared() { return num_declared_post_process_passes; }
@@ -495,7 +499,7 @@ public:
 
 	void post_process_swap_passes(tPostProcess id_a, tPostProcess id_b);
 
-    std::vector<tPostProcess> post_process_get_ids_in_render_order();
+    std::vector<tPostProcess> post_process_get_ids_in_render_order(ePostProcessPositionRender position);
     //end post processing API
 
 

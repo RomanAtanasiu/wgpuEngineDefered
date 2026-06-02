@@ -1,5 +1,4 @@
 #include mesh_includes.wgsl
-#include tonemappers.wgsl
 
 
 fn decode(f_in: vec2<f32>) -> vec3<f32> {
@@ -116,15 +115,30 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
     m.ior = 1.5; // default IOR for most materials
     m.specular_weight = 1.0;
 
+#ifdef IRIDESCENCE_MATERIAL
+    get_iridescence_info(&m, in);
+#endif
+#ifdef CLEARCOAT_MATERIAL
+    get_clearcoat_info(&m, in);
+#endif
+#ifdef ANISOTROPY_MATERIAL
+    get_anisotropy_info(&m, in);
+#endif
+
     if(camera_data.show_depthbuffer == 0 && camera_data.show_gbuffers == 0){
         var final_color : vec3f = vec3f(0.0);//vec3f(m.albedo);
 
         final_color = get_indirect_light(&m);
         //var final_color2 = get_direct_light(&m);
         final_color += get_direct_light(&m);
-        final_color *= camera_data.exposure;
-        final_color = tonemap_khronos_pbr_neutral(final_color);
+        //final_color *= camera_data.exposure;
         out.color = vec4f(final_color, 1.0);
+
+        if(depth == 0.0){
+            out.color = vec4f(albedo_metallic_roughness.rgb, 1.0);
+            return out;
+        }
+
     }
     else if (camera_data.show_gbuffers == 1){
         out.color = vec4f(albedo_metallic_roughness.rgb,1.0);

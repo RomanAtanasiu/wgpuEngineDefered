@@ -48,14 +48,14 @@ fn fs_main(in: SkyboxVertexOutput) -> FragmentOutput {
 
     // White furnace test
     // final_color = vec3f(1.0);
-
+/*
     final_color *= camera_data.exposure;
     final_color = tonemap_khronos_pbr_neutral(final_color);
 
     if (GAMMA_CORRECTION == 1) {
         final_color = pow(final_color, vec3(1.0 / 2.2));
     }
-
+*/
     out.gbuffer_albedo_metallic = vec4f(final_color, 0.0);
     out.gbuffer_normal_roughness = vec4f(0.0);
 

@@ -481,16 +481,10 @@ void Renderer::render()
 		webgpu_context->copy_texture_to_texture(light_buffer_data.texture->get_texture(), BufferA.texture->get_texture(), 0, 0, light_buffer_data.texture->get_size(), { 0, 0, 0 }, { 0, 0, 0 }, global_command_encoder);
 
 		post_processing_bool = true;
-		for (int i = 0; i < num_declared_post_process_passes; i++) {
-			int j = post_process_index[i];
-			if (post_process_data[j].activated) {
-				if (post_process_data[j].pipeline->is_compute_pipeline()) 
-					render_post_processing_compute(post_process_data[j].pipeline, post_process_data[j].compute_workgroups, post_process_data[j].bindgroups, post_process_data[j].shader->get_path());
-				else
-                    render_post_processing(post_process_data[j].pipeline, post_process_data[j].bindgroups, post_process_data[j].shader->get_path());
-			}
-        }
-        
+		render_post_processing_passes(AFTER_LIGHT_PASS);
+
+
+        render_post_processing_passes(BEFORE_GAMMA_PASS);
 		render_gamma_correction(screen_surface_texture_view, "gamma correction pass");
         //render_camera(render_lists, screen_surface_texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "forward_render");
     }
@@ -983,6 +977,19 @@ void Renderer::render_post_processing_compute(Pipeline *pipeline,int workgroups[
 	post_processing_bool = !post_processing_bool;
 }
 
+void Renderer::render_post_processing_passes(ePostProcessPositionRender position) {
+	for (int i = 0; i < num_declared_post_process_passes; i++) {
+		int j = post_process_index[i];
+		if (post_process_data[j].activated && post_process_data[j].position == position) {
+			if (post_process_data[j].pipeline->is_compute_pipeline()) {
+				render_post_processing_compute(post_process_data[j].pipeline, post_process_data[j].compute_workgroups, post_process_data[j].bindgroups, post_process_data[j].shader->get_path());
+			} else {
+				render_post_processing(post_process_data[j].pipeline, post_process_data[j].bindgroups, post_process_data[j].shader->get_path());
+			}
+		}
+	}
+}
+
 void Renderer::render_camera(const std::vector<std::vector<sRenderData>>& render_lists, WGPUTextureView framebuffer_view, WGPUTextureView depth_view,
     const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string& pass_name, uint32_t eye_idx, uint32_t camera_offset)
 {
@@ -1254,52 +1261,14 @@ void Renderer::init_post_processing_textures() {
 }
 
 
-tPostProcess Renderer::init_compute_post_process(const char *source, const std::string &name, const std::vector<std::string> &libraries, const std::string &entry_point) {
-	post_process_data[num_declared_post_process_passes].shader =
-        RendererStorage::get_shader_from_source(source, name, libraries);
-	std::vector<WGPUConstantEntry> constants;
-	post_process_data[num_declared_post_process_passes].pipeline = new Pipeline();
-	post_process_data[num_declared_post_process_passes].pipeline->create_compute(post_process_data[num_declared_post_process_passes].shader, entry_point, constants);
-	post_process_data[num_declared_post_process_passes].activated = true;
 
-    tPostProcess id = get_next_post_process_id();
-	post_process_data[num_declared_post_process_passes].id = id;
-	
-	post_process_index[num_declared_post_process_passes] = num_declared_post_process_passes;
-	num_declared_post_process_passes++;
-    
-    return id;
-}
-
-tPostProcess Renderer::init_render_post_process(const char *source, const std::string &name, const std::vector<std::string> &libraries) {
-	WGPUColorTargetState color_target = {};
-	//post_process format
-	color_target.format = WGPUTextureFormat_RGBA32Float;
-	color_target.blend = nullptr;
-	color_target.writeMask = WGPUColorWriteMask_All;
-
-    post_process_data[num_declared_post_process_passes].shader =
-		RendererStorage::get_shader_from_source(source, name, libraries);
-	post_process_data[num_declared_post_process_passes].pipeline = new Pipeline();
-	post_process_data[num_declared_post_process_passes].pipeline->create_render(post_process_data[num_declared_post_process_passes].shader, color_target, { .use_depth = false, .allow_msaa = false });
-	post_process_data[num_declared_post_process_passes].activated = true;
-
-    tPostProcess id = get_next_post_process_id();
-	post_process_data[num_declared_post_process_passes].id = id;
-	
-	post_process_index[num_declared_post_process_passes] = num_declared_post_process_passes;
-	num_declared_post_process_passes++;
-
-
-    return id;
-}
-
-tPostProcess Renderer::post_process_add_compute_pass(Shader *shader, const std::string &entry_point, int workgroups[3], std::vector<WGPUBindGroup> bindgroups) {
+tPostProcess Renderer::post_process_add_compute_pass(Shader *shader, ePostProcessPositionRender position, const std::string &entry_point, int workgroups[3], std::vector<WGPUBindGroup> bindgroups) {
 	post_process_data[num_declared_post_process_passes].shader = shader;
 	std::vector<WGPUConstantEntry> constants;
 	post_process_data[num_declared_post_process_passes].pipeline = new Pipeline();
 	post_process_data[num_declared_post_process_passes].pipeline->create_compute(post_process_data[num_declared_post_process_passes].shader, entry_point, constants);
-	post_process_data[num_declared_post_process_passes].activated = true;
+	post_process_data[num_declared_post_process_passes].activated = false;
+	post_process_data[num_declared_post_process_passes].position = position;
 
     for (int i = 0; i < 3; ++i) {
 		post_process_data[num_declared_post_process_passes].compute_workgroups[i] = workgroups[i];
@@ -1316,7 +1285,7 @@ tPostProcess Renderer::post_process_add_compute_pass(Shader *shader, const std::
 	return id;
 }
 
-tPostProcess Renderer::post_process_add_render_pass(Shader *shader, std::vector<WGPUBindGroup> bindgroups) {
+tPostProcess Renderer::post_process_add_render_pass(Shader *shader, ePostProcessPositionRender position, std::vector<WGPUBindGroup> bindgroups) {
 	WGPUColorTargetState color_target = {};
 	//post_process format
 	color_target.format = WGPUTextureFormat_RGBA32Float;
@@ -1326,8 +1295,8 @@ tPostProcess Renderer::post_process_add_render_pass(Shader *shader, std::vector<
 	post_process_data[num_declared_post_process_passes].shader = shader;
 	post_process_data[num_declared_post_process_passes].pipeline = new Pipeline();
 	post_process_data[num_declared_post_process_passes].pipeline->create_render(post_process_data[num_declared_post_process_passes].shader, color_target, { .use_depth = false, .allow_msaa = false });
-	post_process_data[num_declared_post_process_passes].activated = true;
-
+	post_process_data[num_declared_post_process_passes].activated = false;
+	post_process_data[num_declared_post_process_passes].position = position;
 	tPostProcess id = get_next_post_process_id();
 	post_process_data[num_declared_post_process_passes].id = id;
 
@@ -2190,29 +2159,39 @@ void Renderer::post_process_set_active(tPostProcess id, bool value) {
 void Renderer::post_process_swap_passes(tPostProcess id_a, tPostProcess id_b) {
 	int index_a = -1;
 	int index_b = -1;
+
+    //jindex is of post_process_data, index of post_process_index
+    int jindex_a = -1;
+	int jindex_b = -1;
 	for (int i = 0; i<num_declared_post_process_passes; i++){
 		int j = post_process_index[i];
 
 		if (post_process_data[j].id == id_a) {
 			index_a = i;
+			jindex_a = j;
         }
 		if (post_process_data[j].id == id_b) {
 			index_b = i;
+			jindex_b = j;
 		}
     }
     if (index_a == -1 || index_b == -1) {
 		spdlog::warn("no ids match in post_process_swap_passes");
 		return;
     }
-
+	if (post_process_data[jindex_a].position != post_process_data[jindex_b].position) {
+		spdlog::warn("cannot swap post process passes in diferent render positions");
+		return;
+	}
     std::swap(post_process_index[index_a], post_process_index[index_b]);
 }
 
-std::vector<tPostProcess> Renderer::post_process_get_ids_in_render_order() {
+std::vector<tPostProcess> Renderer::post_process_get_ids_in_render_order(ePostProcessPositionRender position) {
 	std::vector<tPostProcess> ordered_ids = {};
     for (int i = 0; i < num_declared_post_process_passes; i++) {
 		int j = post_process_index[i];
-		ordered_ids.push_back(post_process_data[j].id);
+		if (post_process_data[j].position ==  position)
+		    ordered_ids.push_back(post_process_data[j].id);
     }
 	return ordered_ids;
 }
