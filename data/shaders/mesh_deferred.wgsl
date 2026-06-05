@@ -254,7 +254,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_facing: bool) -> Fr
     out.gbuffer_albedo_metallic_roughness = vec4f(albedo_color.x, albedo_color.y, albedo_color.z, metallic_roughness);
     
     let normal_encoded = encode(normalize(m.normal));
-    out.gbuffer_normal_velocity = vec4f(normal_encoded.x, normal_encoded.y, 0, 0);
+    out.gbuffer_normal_velocity = vec4f(normal_encoded.x, normal_encoded.y, 0, 1);
 
     // m.roughness = max(m.roughness, 0.04);
     // m.diffuse = mix(m.albedo, vec3f(0.0), m.metallic);

@@ -907,9 +907,9 @@ void Renderer::render_post_processing(Pipeline *pipeline, std::vector<WGPUBindGr
         
 #ifndef __EMSCRIPTEN__
 	std::vector<WGPUPassTimestampWrites> timestampWrites(1);
-	timestampWrites[0].beginningOfPassWriteIndex = timestamp(global_command_encoder, (pass_name + "_pre_render").c_str());
+	timestampWrites[0].beginningOfPassWriteIndex = timestamp(global_command_encoder, (pass_name + "_post_pre_render").c_str());
 	timestampWrites[0].querySet = timestamp_query_set;
-	timestampWrites[0].endOfPassWriteIndex = timestamp(global_command_encoder, (pass_name + "_render").c_str());
+	timestampWrites[0].endOfPassWriteIndex = timestamp(global_command_encoder, (pass_name + "_post_render").c_str());
 
 	render_pass_descr.timestampWrites = timestampWrites.data();
 #endif
@@ -950,7 +950,21 @@ void Renderer::render_post_processing(Pipeline *pipeline, std::vector<WGPUBindGr
 }
 
 void Renderer::render_post_processing_compute(Pipeline *pipeline,int workgroups[3] ,std::vector<WGPUBindGroup> extras, const std::string &pass_name) {
+
+
+
+
     WGPUComputePassDescriptor compute_pass_descriptor = {};
+
+    #ifndef __EMSCRIPTEN__
+	std::vector<WGPUPassTimestampWrites> timestampWrites(1);
+	timestampWrites[0].beginningOfPassWriteIndex = timestamp(global_command_encoder, (pass_name + "_post_pre_render").c_str());
+	timestampWrites[0].querySet = timestamp_query_set;
+	timestampWrites[0].endOfPassWriteIndex = timestamp(global_command_encoder, (pass_name + "_post_render").c_str());
+
+	compute_pass_descriptor.timestampWrites = timestampWrites.data();
+#endif
+
     WGPUComputePassEncoder compute_pass = wgpuCommandEncoderBeginComputePass(global_command_encoder, &compute_pass_descriptor);
     #ifndef NDEBUG
     webgpu_context->push_debug_group(compute_pass, { pass_name.c_str(), WGPU_STRLEN });

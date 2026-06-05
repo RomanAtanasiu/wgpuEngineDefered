@@ -495,6 +495,7 @@ void Engine::on_frame()
     IO::end_frame();
 
     renderer->increase_frame_counter();
+
 }
 
 void Engine::update(float delta_time)
