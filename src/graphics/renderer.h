@@ -264,6 +264,8 @@ protected:
 
     void get_timestamps();
 
+	void save_time_diffs_to_csv(const std::string &filename, const std::vector<float> &time_diffs);
+
     sInstanceData render_instances_data;
     sInstanceData shadow_instances_data;
 

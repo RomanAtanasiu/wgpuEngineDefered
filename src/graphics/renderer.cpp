@@ -52,6 +52,7 @@
 #include "shaders/black_and_white.wgsl.gen.h"
 
 #include "spdlog/spdlog.h"
+#include <fstream>
 
 Renderer* Renderer::instance = nullptr;
 
@@ -394,7 +395,7 @@ void Renderer::update(float delta_time)
     // Create the command encoder
     WGPUCommandEncoderDescriptor encoder_desc = {};
     global_command_encoder = wgpuDeviceCreateCommandEncoder(webgpu_context->device, &encoder_desc);
-
+	//request_timestamps();
     if (!is_xr_available) {
         const auto& io = ImGui::GetIO();
         if (!io.WantCaptureMouse && !io.WantCaptureKeyboard && !IO::any_focus()) {
@@ -1600,6 +1601,13 @@ void Renderer::get_timestamps()
         }
 
         last_frame_timestamps = time_diffs;
+		bool time_diffs_equal_O = false;
+		for (float time_diff : time_diffs) {
+            if (time_diff == 0) 
+				time_diffs_equal_O = true;
+        }
+		//if ((time_diffs_equal_O))
+		    save_time_diffs_to_csv("time_diffs_deferred.csv", time_diffs);
 
         delete query_index_cpy;
         };
@@ -1611,6 +1619,40 @@ void Renderer::get_timestamps()
 #endif
 
 }
+
+void Renderer::save_time_diffs_to_csv(const std::string &filename, const std::vector<float> &time_diffs) {
+	std::ofstream csv_file;
+
+	// Abrir el archivo en modo de adición
+	csv_file.open(filename, std::ios::app);
+
+	if (!csv_file.is_open()) {
+		spdlog::error("Failed to open file: {}", filename);
+		return;
+	}
+
+	// Verificar si el archivo está vacío para agregar el encabezado
+	csv_file.seekp(0, std::ios::end);
+	if (csv_file.tellp() == 0) {
+		csv_file << "Index,TimeDiff(ms)\n"; // Encabezado del archivo CSV
+		for (size_t i = 0; i < time_diffs.size(); ++i) {
+			csv_file << i << ",";
+		}
+		csv_file << "\n";
+	}
+
+	// Agregar los nuevos resultados
+	for (size_t i = 0; i < time_diffs.size(); ++i) {
+		if (i != 0) {
+			csv_file << ",";
+        }
+		csv_file << time_diffs[i];
+	}
+	csv_file << "\n";
+	csv_file.close();
+	spdlog::info("New time differences appended to {}", filename);
+}
+
 
 void Renderer::set_msaa_count(uint8_t msaa_count, bool is_initial_value)
 {
