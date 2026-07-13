@@ -1210,7 +1210,7 @@ void Renderer::init_deferred_light_buffer() {
 	WGPUTextureUsage;
 	light_buffer_data.texture->create(
 		WGPUTextureDimension_2D,
-		WGPUTextureFormat_RGBA32Float,
+		webgpu_context->light_buffer_format,
 		{ webgpu_context->gbuffer_format.width, webgpu_context->gbuffer_format.height, 1u },
 		WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding | WGPUTextureUsage_CopySrc,
         1u, 1u, nullptr
@@ -1257,7 +1257,7 @@ void Renderer::init_post_processing_textures() {
 	BufferA.texture = new Texture();
 	BufferA.texture->create(
 			WGPUTextureDimension_2D,
-			WGPUTextureFormat_RGBA32Float,
+			webgpu_context->post_processing_format,
 			{ webgpu_context->gbuffer_format.width, webgpu_context->gbuffer_format.height, 1u },
 			WGPUTextureUsage_CopySrc | WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding |WGPUTextureUsage_RenderAttachment,
 			1u, 1u, nullptr);
@@ -1267,7 +1267,7 @@ void Renderer::init_post_processing_textures() {
     BufferB.texture = new Texture();
 	BufferB.texture->create(
 			WGPUTextureDimension_2D,
-			WGPUTextureFormat_RGBA32Float,
+			webgpu_context->post_processing_format,
 			{ webgpu_context->gbuffer_format.width, webgpu_context->gbuffer_format.height, 1u },
 			WGPUTextureUsage_CopySrc | WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding | WGPUTextureUsage_RenderAttachment,
 			1u, 1u, nullptr);
@@ -1303,7 +1303,7 @@ tPostProcess Renderer::post_process_add_compute_pass(Shader *shader, ePostProces
 tPostProcess Renderer::post_process_add_render_pass(Shader *shader, ePostProcessPositionRender position, std::vector<WGPUBindGroup> bindgroups) {
 	WGPUColorTargetState color_target = {};
 	//post_process format
-	color_target.format = WGPUTextureFormat_RGBA32Float;
+	color_target.format = webgpu_context->post_processing_format;
 	color_target.blend = nullptr;
 	color_target.writeMask = WGPUColorWriteMask_All;
 
@@ -1329,7 +1329,7 @@ void Renderer::init_deferred_lightpass() {
     {
         WGPUColorTargetState color_target = {};
         //lighting_pass format
-		color_target.format = WGPUTextureFormat_RGBA32Float;
+		color_target.format = webgpu_context->light_buffer_format;
         color_target.blend = nullptr;
         color_target.writeMask = WGPUColorWriteMask_All;
 		std::vector<Uniform *> uniforms;
