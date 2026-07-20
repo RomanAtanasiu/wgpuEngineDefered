@@ -4,7 +4,6 @@
 
 #include "framework/animation/skeleton.h"
 
-#include "shaders/mesh_forward.wgsl.gen.h"
 
 #include <glm/gtc/type_ptr.hpp>
 
@@ -34,7 +33,7 @@ void SkeletonHelper3D::initialize()
     skeleton_material->set_depth_read(false);
     skeleton_material->set_priority(0);
     skeleton_material->set_topology_type(eTopologyType::TOPOLOGY_LINE_LIST);
-    skeleton_material->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, skeleton_material));
+	skeleton_material->set_shader(RendererStorage::get_shader_from_source(shaders::default_mesh_shader::source, shaders::default_mesh_shader::path, shaders::default_mesh_shader::libraries, skeleton_material));
     set_surface_material_override(s, skeleton_material);
 }
 

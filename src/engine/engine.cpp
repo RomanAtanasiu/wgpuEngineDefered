@@ -27,7 +27,6 @@
 #include "xr/webxr/webxr_context.h"
 #endif
 
-#include "shaders/mesh_forward.wgsl.gen.h"
 #include "shaders/mesh_grid.wgsl.gen.h"
 
 #include "imgui.h"
@@ -564,7 +563,7 @@ void Engine::render_default_gui()
             {
                 auto create_mesh_instance = [&](Mesh* mesh) {
                     auto boxMaterial = new Material();
-                    boxMaterial->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, boxMaterial));
+					boxMaterial->set_shader(RendererStorage::get_shader_from_source(shaders::default_mesh_shader::source, shaders::default_mesh_shader::path, shaders::default_mesh_shader::libraries, boxMaterial));
                     auto box = new MeshInstance3D();
                     box->set_name(mesh->get_mesh_type());
                     box->set_mesh(mesh);

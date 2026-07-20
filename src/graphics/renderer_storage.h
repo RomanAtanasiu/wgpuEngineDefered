@@ -11,6 +11,9 @@
 #include "graphics/uniforms_structs.h"
 #include "framework/utils/hash.h"
 
+#include "shaders/mesh_forward.wgsl.gen.h"
+#include "shaders/mesh_deferred.wgsl.gen.h"
+
 class Surface;
 class Texture;
 class Shader;
@@ -27,7 +30,25 @@ enum TextureStorageFlags : uint8_t {
     TEXTURE_STORAGE_UI = TEXTURE_STORAGE_SRGB | TEXTURE_STORAGE_KEEP_MEMORY
 };
 
+// Set up an Alias shader, that changes depeding on choosing the deferred pipeline
+namespace shaders {
+#ifdef USE_DEFERRED_PIPELINE
+struct default_mesh_shader {
+	inline static const char *path = shaders::mesh_deferred::path;
+	inline static const std::vector<std::string> libraries = shaders::mesh_deferred::libraries;
+	inline static const char *source = shaders::mesh_deferred::source;
+};
+#else
+struct default_mesh_shader {
+	inline static const char *path = shaders::mesh_forward::path;
+	inline static const std::vector<std::string> libraries = shaders::mesh_forward::libraries;
+	inline static const char *source = shaders::mesh_forward::source;
+};
+#endif
+}; //namespace shaders
+
 class RendererStorage {
+	static bool is_material_in_deferred_pass(const Material *material);
 
 public:
 

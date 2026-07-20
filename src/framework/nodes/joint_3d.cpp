@@ -8,7 +8,6 @@
 #include "framework/nodes/skeleton_instance_3d.h"
 #include "framework/parsers/parse_obj.h"
 
-#include "shaders/mesh_forward.wgsl.gen.h"
 
 #include <glm/gtc/type_ptr.hpp>
 
@@ -23,14 +22,14 @@ Joint3D::Joint3D()
     material->set_priority(0);
     material->set_transparency_type(ALPHA_BLEND);
     material->set_color(glm::vec4(1.0f));
-    material->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, material));
+	material->set_shader(RendererStorage::get_shader_from_source(shaders::default_mesh_shader::source, shaders::default_mesh_shader::path, shaders::default_mesh_shader::libraries, material));
 
     Material* selected_material = new Material();
     selected_material->set_depth_read(false);
     selected_material->set_priority(0);
     selected_material->set_transparency_type(ALPHA_BLEND);
     selected_material->set_color(glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
-    selected_material->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, material));
+	selected_material->set_shader(RendererStorage::get_shader_from_source(shaders::default_mesh_shader::source, shaders::default_mesh_shader::path, shaders::default_mesh_shader::libraries, material));
 
     Mesh* mesh = new BoxMesh();
 

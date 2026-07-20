@@ -478,6 +478,13 @@ void Renderer::render()
 
         resolve_gbuffers(light_buffer_data.texture_view, eye_depth_textures[EYE_LEFT].get_texture(), eye_depth_texture_view[EYE_LEFT], render_instances_data, gbuffers_light_pass_camera_bind_group, true, "deferred_light_pass");
 
+        std::vector<std::vector<sRenderData>> render_lists_only_transparents(RENDER_LIST_COUNT);
+
+        render_lists_only_transparents[RENDER_LIST_TRANSPARENT] = render_lists[RENDER_LIST_TRANSPARENT];
+
+        //transparents pass
+		//render_camera(render_lists_only_transparents, light_buffer_data.texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "forward_render_transparents_only");
+
         //to do, copy light buffer to bufferA
 		webgpu_context->copy_texture_to_texture(light_buffer_data.texture->get_texture(), BufferA.texture->get_texture(), 0, 0, light_buffer_data.texture->get_size(), { 0, 0, 0 }, { 0, 0, 0 }, global_command_encoder);
 

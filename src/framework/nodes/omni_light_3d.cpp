@@ -7,8 +7,6 @@
 #include "framework/math/math_utils.h"
 #include "framework/nodes/node_factory.h"
 
-#include "shaders/mesh_forward.wgsl.gen.h"
-#include "shaders/mesh_deferred.wgsl.gen.h"
 
 #include "imgui.h"
 
@@ -105,7 +103,7 @@ void OmniLight3D::create_debug_meshes()
 	debug_material->set_type(MATERIAL_PBR);
 	debug_material->set_transparency_type(ALPHA_OPAQUE);
     debug_material->set_topology_type(TOPOLOGY_LINE_STRIP);
-    debug_material->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_deferred::source, shaders::mesh_deferred::path, shaders::mesh_deferred::libraries, debug_material),true);
+	debug_material->set_shader(RendererStorage::get_shader_from_source(shaders::default_mesh_shader::source, shaders::default_mesh_shader::path, shaders::default_mesh_shader::libraries, debug_material));
     debug_surface->set_material(debug_material);
 
     debug_mesh_v = new MeshInstance3D();

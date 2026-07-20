@@ -14,8 +14,6 @@
 #include "imgui.h"
 #include "framework/utils/ImGuizmo.h"
 
-#include "shaders/mesh_forward.wgsl.gen.h"
-
 #include <glm/gtc/type_ptr.hpp>
 #include "spdlog/spdlog.h"
 

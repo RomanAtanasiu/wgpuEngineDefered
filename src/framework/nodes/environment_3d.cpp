@@ -24,7 +24,7 @@ Environment3D::Environment3D() : MeshInstance3D()
     material->set_depth_write(false);
     material->set_priority(20);
 #ifdef USE_DEFERRED_PIPELINE
-    material->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_texture_cube_deferred::source, shaders::mesh_texture_cube_deferred::path, shaders::mesh_texture_cube_deferred::libraries, material), true);
+    material->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_texture_cube_deferred::source, shaders::mesh_texture_cube_deferred::path, shaders::mesh_texture_cube_deferred::libraries, material));
 #else
     material->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_texture_cube::source, shaders::mesh_texture_cube::path, shaders::mesh_texture_cube::libraries, material));
 #endif

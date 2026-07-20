@@ -14,6 +14,7 @@
 
 #include <filesystem>
 
+
 #ifdef __EMSCRIPTEN__
 
 #include "shaders/mesh_forward.wgsl.gen.h"
@@ -40,6 +41,7 @@ std::unordered_map<const void*, RendererStorage::sBindingData> RendererStorage::
 
 std::unordered_map<RenderPipelineKey, Pipeline*> RendererStorage::registered_render_pipelines;
 std::unordered_map<Shader*, Pipeline*> RendererStorage::registered_compute_pipelines;
+
 
 RendererStorage::RendererStorage()
 {
@@ -987,7 +989,7 @@ RenderPipelineKey RendererStorage::get_render_pipeline_key(Material* material)
     current_pipeline_key.description = description;
     current_pipeline_key.pipeline_layout = material->get_shader()->get_pipeline_layout();
 
-    if (material->is_deferred_material()) {
+    if (is_material_in_deferred_pass(material)) {
         current_pipeline_key.color_target_count = webgpu_context->gbuffer_format.GBUFFER_COUNT;
         for (uint32_t i = 0u; i < webgpu_context->gbuffer_format.GBUFFER_COUNT; i++) {
             current_pipeline_key.color_targets[i] = {};
@@ -1053,4 +1055,13 @@ void RendererStorage::clean_registered_pipelines()
 
     registered_render_pipelines.clear();
     registered_compute_pipelines.clear();
+}
+
+
+bool RendererStorage::is_material_in_deferred_pass(const Material *material) {
+#ifdef USE_DEFERRED_PIPELINE
+	return material->get_transparency_type() != ALPHA_BLEND || !material->get_is_2D();
+#else
+	return false;
+#endif
 }

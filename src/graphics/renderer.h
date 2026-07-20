@@ -63,7 +63,6 @@ struct sRendererConfiguration {
     }
 };
 
-
 class Renderer {
 
 protected:

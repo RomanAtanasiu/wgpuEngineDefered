@@ -12,7 +12,6 @@
 #include "graphics/renderer.h"
 #include "graphics/webgpu_context.h"
 
-#include "shaders/mesh_forward.wgsl.gen.h"
 #include "shaders/ui/ui_selector.wgsl.gen.h"
 #include "shaders/ui/ui_group.wgsl.gen.h"
 
@@ -34,7 +33,7 @@ namespace ui {
         material->set_priority(class_type);
         material->set_cull_type(CULL_BACK);
         material->set_depth_read_write(false);
-        material->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, material));
+		material->set_shader(RendererStorage::get_shader_from_source(shaders::default_mesh_shader::source, shaders::default_mesh_shader::path, shaders::default_mesh_shader::libraries, material));
 
         quad_mesh->set_surface_material_override(quad_mesh->get_surface(0), material);
 

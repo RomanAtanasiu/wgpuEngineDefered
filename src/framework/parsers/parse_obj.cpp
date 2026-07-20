@@ -9,8 +9,6 @@
 
 #include "framework/nodes/mesh_instance_3d.h"
 
-#include "shaders/mesh_forward.wgsl.gen.h"
-#include "shaders/mesh_deferred.wgsl.gen.h"
 
 #include <filesystem>
 
@@ -67,11 +65,8 @@ void parse_obj(const std::string& obj_path, MeshInstance3D* entity_mesh, bool cr
                 }
             }
 
-#ifdef USE_DEFERRED_PIPELINE
-            material->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_deferred::source, shaders::mesh_deferred::path, shaders::mesh_deferred::libraries, material), true);
-#else
-            material->set_shader(RendererStorage::get_shader_from_source(shaders::mesh_forward::source, shaders::mesh_forward::path, shaders::mesh_forward::libraries, material));
-#endif
+            material->set_shader(RendererStorage::get_shader_from_source(shaders::default_mesh_shader::source, shaders::default_mesh_shader::path, shaders::default_mesh_shader::libraries, material));
+
             new_surface->set_material(material);
         }
 

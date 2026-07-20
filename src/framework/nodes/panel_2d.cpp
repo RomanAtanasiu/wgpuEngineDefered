@@ -15,7 +15,6 @@
 #include "graphics/renderer.h"
 #include "graphics/webgpu_context.h"
 
-#include "shaders/mesh_forward.wgsl.gen.h"
 #include "shaders/ui/ui_panel.wgsl.gen.h"
 #include "shaders/ui/ui_xr_panel.wgsl.gen.h"
 #include "shaders/ui/ui_color_picker.wgsl.gen.h"
