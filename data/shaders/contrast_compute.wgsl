@@ -2,7 +2,7 @@
 
 @group(0) @binding(0) var in_texture: texture_2d<f32>;
 //check format
-@group(0) @binding(1) var outTexture: texture_storage_2d<rgba32float,write>;
+@group(0) @binding(1) var outTexture: texture_storage_2d<rgba16float,write>;
 //@group(1) @binding(0) var<uniform> blur_level: i32;
 
 //https://www.shadertoy.com/view/XdcXzn

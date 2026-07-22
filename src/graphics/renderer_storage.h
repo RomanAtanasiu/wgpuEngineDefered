@@ -48,8 +48,6 @@ struct default_mesh_shader {
 }; //namespace shaders
 
 class RendererStorage {
-	static bool is_material_in_deferred_pass(const Material *material);
-
 public:
 
     RendererStorage();
@@ -84,6 +82,8 @@ public:
     static void delete_material_bind_group(WebGPUContext* webgpu_context, Material* material);
 
     static void update_material_bind_group(WebGPUContext* webgpu_context, Mesh* mesh, Material* material);
+
+    static bool is_material_in_deferred_pass(const Material *material);
 
     static void register_ui_widget(WebGPUContext* webgpu_context, Shader* shader, void* widget, const sUIData& ui_data, uint8_t bind_group_id, bool force = false);
     static WGPUBindGroup get_ui_widget_bind_group(const void* widget);

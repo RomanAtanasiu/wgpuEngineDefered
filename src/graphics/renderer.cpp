@@ -483,7 +483,7 @@ void Renderer::render()
         render_lists_only_transparents[RENDER_LIST_TRANSPARENT] = render_lists[RENDER_LIST_TRANSPARENT];
 
         //transparents pass
-		//render_camera(render_lists_only_transparents, light_buffer_data.texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "forward_render_transparents_only");
+		render_camera(render_lists_only_transparents, light_buffer_data.texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "forward_render_transparents_only");
 
         //to do, copy light buffer to bufferA
 		webgpu_context->copy_texture_to_texture(light_buffer_data.texture->get_texture(), BufferA.texture->get_texture(), 0, 0, light_buffer_data.texture->get_size(), { 0, 0, 0 }, { 0, 0, 0 }, global_command_encoder);
@@ -1028,7 +1028,7 @@ void Renderer::render_camera(const std::vector<std::vector<sRenderData>>& render
                 render_pass_color_attachment.view = framebuffer_view;
             }
 
-            render_pass_color_attachment.loadOp = WGPULoadOp_Clear;
+            render_pass_color_attachment.loadOp = WGPULoadOp_Load;
             render_pass_color_attachment.storeOp = WGPUStoreOp_Store;
             render_pass_color_attachment.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
             render_pass_color_attachment.clearValue = WGPUColor{ clear_color.r, clear_color.g, clear_color.b, clear_color.a };
@@ -1560,7 +1560,7 @@ void Renderer::init_post_process_bindgroups() {
 		Uniform texture_uniformA;
 		texture_uniformA.data = BufferA.texture_view;
 		texture_uniformA.binding = 0;
-
+		int a;
 		Uniform texture_uniformB;
 		texture_uniformB.data = BufferB.texture_view;
 		texture_uniformB.binding = 1;
@@ -1931,6 +1931,10 @@ void Renderer::render_render_list(WGPURenderPassEncoder render_pass, const std::
         if (!material) {
             assert(0);
             continue;
+        }
+
+        if (material->get_transparency_type() == ALPHA_BLEND) {
+			int q = 0;
         }
 
         const Pipeline* pipeline = material->get_shader()->get_pipeline();

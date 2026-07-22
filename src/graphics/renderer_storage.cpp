@@ -1004,7 +1004,7 @@ RenderPipelineKey RendererStorage::get_render_pipeline_key(Material* material)
     } else {
         current_pipeline_key.color_target_count = 1u;
         current_pipeline_key.color_targets[0] = {};
-        current_pipeline_key.color_targets[0].format = swapchain_format;
+        current_pipeline_key.color_targets[0].format = webgpu_context->light_buffer_format;
         current_pipeline_key.color_targets[0].writeMask = WGPUColorWriteMask_All;
 
         switch (material->get_transparency_type()) {
@@ -1060,7 +1060,7 @@ void RendererStorage::clean_registered_pipelines()
 
 bool RendererStorage::is_material_in_deferred_pass(const Material *material) {
 #ifdef USE_DEFERRED_PIPELINE
-	return material->get_transparency_type() != ALPHA_BLEND || !material->get_is_2D();
+	return material->get_transparency_type() != ALPHA_BLEND && !material->get_is_2D();
 #else
 	return false;
 #endif

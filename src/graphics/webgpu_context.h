@@ -90,8 +90,8 @@ struct WebGPUContext {
         uint32_t height = 1080u;
     } gbuffer_format;
 
-    const WGPUTextureFormat light_buffer_format = WGPUTextureFormat_RGBA32Float;
-	const WGPUTextureFormat post_processing_format = WGPUTextureFormat_RGBA32Float;
+    const WGPUTextureFormat light_buffer_format = WGPUTextureFormat_RGBA16Float;
+	const WGPUTextureFormat post_processing_format = WGPUTextureFormat_RGBA16Float;
 
     int                    initialize(bool create_screen_swapchain);
     void                   destroy();

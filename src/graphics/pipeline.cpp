@@ -28,7 +28,10 @@ void render_pipeline_creation_callback(WGPUCreatePipelineAsyncStatus status, WGP
     if (status == WGPUCreatePipelineAsyncStatus_Success) {
         render_pipeline->pipeline = pipeline;
         render_pipeline->loaded = true;
-    }
+	} else {
+		spdlog::error("Error on async render pipeline creation: ");
+		spdlog::error(message.data);
+	}
 }
 
 void compute_pipeline_creation_callback(WGPUCreatePipelineAsyncStatus status, WGPUComputePipeline pipeline, struct WGPUStringView message, void* userdata1, void* userdata2)
@@ -37,7 +40,10 @@ void compute_pipeline_creation_callback(WGPUCreatePipelineAsyncStatus status, WG
     if (status == WGPUCreatePipelineAsyncStatus_Success) {
         compute_pipeline->pipeline = pipeline;
         compute_pipeline->loaded = true;
-    }
+	} else {
+		spdlog::error("Error on async compute pipeline creation: ");
+		spdlog::error(message.data);
+	}
 }
 
 void Pipeline::create_render_common(Shader* shader, const WGPUColorTargetState* p_color_targets, const uint32_t color_target_count, const RenderPipelineDescription& desc)
