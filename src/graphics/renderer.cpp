@@ -478,12 +478,7 @@ void Renderer::render()
 
         resolve_gbuffers(light_buffer_data.texture_view, eye_depth_textures[EYE_LEFT].get_texture(), eye_depth_texture_view[EYE_LEFT], render_instances_data, gbuffers_light_pass_camera_bind_group, true, "deferred_light_pass");
 
-        std::vector<std::vector<sRenderData>> render_lists_only_transparents(RENDER_LIST_COUNT);
-
-        render_lists_only_transparents[RENDER_LIST_TRANSPARENT] = render_lists[RENDER_LIST_TRANSPARENT];
-
-        //transparents pass
-		render_camera(render_lists_only_transparents, light_buffer_data.texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "forward_render_transparents_only");
+        render_camera_transparents(render_lists, light_buffer_data.texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "deferred_transparecy_pass");
 
         //to do, copy light buffer to bufferA
 		webgpu_context->copy_texture_to_texture(light_buffer_data.texture->get_texture(), BufferA.texture->get_texture(), 0, 0, light_buffer_data.texture->get_size(), { 0, 0, 0 }, { 0, 0, 0 }, global_command_encoder);
@@ -746,10 +741,6 @@ void Renderer::render_camera_in_gbuffers(const std::vector<std::vector<sRenderDa
 #endif
     }
 
-    // Lighing pass
-
-    // Post process...
-
 #ifndef NDEBUG
     webgpu_context->pop_debug_group(render_pass);
 #endif
@@ -757,6 +748,86 @@ void Renderer::render_camera_in_gbuffers(const std::vector<std::vector<sRenderDa
     wgpuRenderPassEncoderEnd(render_pass);
 
     wgpuRenderPassEncoderRelease(render_pass);
+}
+
+void Renderer::render_camera_transparents(const std::vector<std::vector<sRenderData>> &render_lists, WGPUTextureView framebuffer_view, WGPUTextureView depth_view, const sInstanceData &instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string &pass_name, uint32_t eye_idx, uint32_t camera_offset) {
+	{
+		// Prepare the color attachment
+		WGPURenderPassColorAttachment render_pass_color_attachment = {};
+
+		if (framebuffer_view) {
+			if (msaa_count > 1) {
+				render_pass_color_attachment.view = multisample_textures_views[eye_idx];
+				render_pass_color_attachment.resolveTarget = framebuffer_view;
+			} else {
+				render_pass_color_attachment.view = framebuffer_view;
+			}
+
+			render_pass_color_attachment.loadOp = WGPULoadOp_Load;
+			render_pass_color_attachment.storeOp = WGPUStoreOp_Store;
+			render_pass_color_attachment.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
+			render_pass_color_attachment.clearValue = WGPUColor{ clear_color.r, clear_color.g, clear_color.b, clear_color.a };
+		}
+
+		// Prepate the depth attachment
+		WGPURenderPassDepthStencilAttachment render_pass_depth_attachment = {};
+
+		if (depth_view) {
+			render_pass_depth_attachment.view = depth_view;
+			render_pass_depth_attachment.depthClearValue = 0.0f;
+			render_pass_depth_attachment.depthLoadOp = WGPULoadOp_Clear;
+			render_pass_depth_attachment.depthStoreOp = WGPUStoreOp_Store;
+			render_pass_depth_attachment.depthReadOnly = false;
+			render_pass_depth_attachment.stencilClearValue = 0; // Stencil config necesary, even if unused
+			render_pass_depth_attachment.stencilLoadOp = WGPULoadOp_Undefined;
+			render_pass_depth_attachment.stencilStoreOp = WGPUStoreOp_Undefined;
+			render_pass_depth_attachment.stencilReadOnly = true;
+		}
+
+		WGPURenderPassDescriptor render_pass_descr = {};
+		render_pass_descr.colorAttachmentCount = framebuffer_view ? 1 : 0;
+		render_pass_descr.colorAttachments = framebuffer_view ? &render_pass_color_attachment : nullptr;
+		render_pass_descr.depthStencilAttachment = depth_view ? &render_pass_depth_attachment : nullptr;
+		render_pass_descr.label = { pass_name.c_str(), pass_name.length() };
+
+#ifndef __EMSCRIPTEN__
+		std::vector<WGPUPassTimestampWrites> timestampWrites(1);
+		timestampWrites[0].beginningOfPassWriteIndex = timestamp(global_command_encoder, (pass_name + "_pre_render").c_str());
+		timestampWrites[0].querySet = timestamp_query_set;
+		timestampWrites[0].endOfPassWriteIndex = timestamp(global_command_encoder, (pass_name + "_render").c_str());
+
+		render_pass_descr.timestampWrites = timestampWrites.data();
+#endif
+		// Create & fill the render pass (encoder)
+		WGPURenderPassEncoder render_pass = wgpuCommandEncoderBeginRenderPass(global_command_encoder, &render_pass_descr);
+
+#ifndef NDEBUG
+		webgpu_context->push_debug_group(render_pass, { pass_name.c_str(), WGPU_STRLEN });
+#endif
+
+		if (render_transparents) {
+			if (custom_pre_transparent_pass) {
+				custom_pre_transparent_pass(render_pass, camera_bind_group, custom_pass_user_data, camera_offset * camera_buffer_stride);
+			}
+
+			render_transparent(render_pass, render_lists, instance_data, camera_bind_group, camera_offset * camera_buffer_stride);
+
+			if (custom_post_transparent_pass) {
+				custom_post_transparent_pass(render_pass, camera_bind_group, custom_pass_user_data, camera_offset * camera_buffer_stride);
+			}
+
+			render_splats(render_pass, render_lists, instance_data, camera_bind_group, camera_offset * camera_buffer_stride);
+		}
+
+#ifndef NDEBUG
+		webgpu_context->pop_debug_group(render_pass);
+#endif
+
+		wgpuRenderPassEncoderEnd(render_pass);
+
+		wgpuRenderPassEncoderRelease(render_pass);
+	}
+
 }
 
 void Renderer::resolve_gbuffers(WGPUTextureView framebuffer_view, WGPUTexture depth_texture, WGPUTextureView depth_view, const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string& pass_name, uint32_t eye_idx, uint32_t camera_offset) {

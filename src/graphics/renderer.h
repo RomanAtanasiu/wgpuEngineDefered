@@ -310,7 +310,7 @@ protected:
     Shader* gs_render_shader = nullptr;
 
     WGPUQuerySet timestamp_query_set;
-    uint8_t maximum_query_sets = 16;
+    uint8_t maximum_query_sets = 32;
 
     WGPUBuffer timestamp_query_buffer;
     uint8_t query_index = 0;
@@ -405,6 +405,9 @@ public:
 
     void render_camera_in_gbuffers(const std::vector<std::vector<sRenderData>>& render_lists, WGPUTextureView framebuffer_view, WGPUTextureView depth_view,
         const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string& pass_name = "", uint32_t eye_idx = 0, uint32_t camera_offset = 0);
+
+    void render_camera_transparents(const std::vector<std::vector<sRenderData>>& render_lists, WGPUTextureView framebuffer_view, WGPUTextureView depth_view,
+        const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents = true, const std::string& pass_name = "", uint32_t eye_idx = 0, uint32_t camera_offset = 0);
 
     void resolve_gbuffers(WGPUTextureView framebuffer_view, WGPUTexture depth_texture, WGPUTextureView depth_view,
         const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, bool render_transparents, const std::string& pass_name = "", uint32_t eye_idx = 0, uint32_t camera_offset = 0);
