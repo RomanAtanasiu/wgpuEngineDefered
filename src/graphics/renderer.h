@@ -257,9 +257,9 @@ protected:
 
     struct sTAAData{
         //between -1 and 1
-        glm::vec2 samples[2];
+        glm::vec2 samples[8];
 		int current_sample = 0;
-		int num_samples = 2;
+		int num_samples = 8;
 
 
     } temporal_AA_data;

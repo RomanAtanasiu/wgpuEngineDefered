@@ -133,8 +133,8 @@ glm::mat4x4 Camera::get_projection_matrix_jittered(glm::vec2 screen_dimensions, 
 
 
 	glm::mat4x4 jitter_matrix = projection;
-	jitter_matrix[0][2] = jitter.x;
-	jitter_matrix[1][2] = jitter.y;
+	jitter_matrix[2][0] = jitter.x;
+	jitter_matrix[2][1] = jitter.y;
 	return jitter_matrix;
 }
 
