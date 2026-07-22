@@ -23,6 +23,12 @@ public:
     void update_projection_matrix();
     void update_view_projection_matrix();
 
+    //sample is between 1 and -1
+	glm::mat4x4 get_view_projection_matrix_jittered(glm::vec2 screen_dimensions, glm::vec2 sample);
+	glm::mat4x4 get_projection_matrix_jittered(glm::vec2 screen_dimensions, glm::vec2 sample);
+
+
+
     virtual void look_at(const glm::vec3& eye, const glm::vec3& center, const glm::vec3& up, bool reset_internals = true);
 
     glm::vec3 screen_to_ray(const glm::vec2& mouse_position);

@@ -217,7 +217,13 @@ int Renderer::post_initialize() {
 	init_gamma_pass();
 
     init_post_process_bindgroups();
-
+    //Todo: update samples from grid to evenly random samples
+    for (int i = 1; i <= temporal_AA_data.num_samples; i++) {
+		temporal_AA_data.samples[i-1].x = (float)i / ((float)temporal_AA_data.num_samples + 1.0);
+		temporal_AA_data.samples[i-1].y = (float)i / ((float)temporal_AA_data.num_samples + 1.0);
+		temporal_AA_data.samples[i-1] = temporal_AA_data.samples[i-1] * glm::vec2(2.0) - glm::vec2(1.0);
+    }
+    
 
 
 
@@ -467,12 +473,17 @@ void Renderer::render()
         prepare_cull_instancing(*camera_3d, render_lists, render_instances_data);
 
         camera_data.eye = camera_3d->get_eye();
-        camera_data.view_projection = camera_3d->get_view_projection();
+		temporal_AA_data.samples[temporal_AA_data.current_sample];
+		camera_data.view_projection = camera_3d->get_view_projection_matrix_jittered(camera_data.screen_size, temporal_AA_data.samples[temporal_AA_data.current_sample]);
         camera_data.view = camera_3d->get_view();
-        camera_data.projection = camera_3d->get_projection();
-		camera_data.inv_view_projection = glm::inverse(camera_3d->get_view_projection());
+		camera_data.projection = camera_3d->get_projection_matrix_jittered(camera_data.screen_size, temporal_AA_data.samples[temporal_AA_data.current_sample]);
+		//camera_data.inv_view_projection = glm::inverse(camera_3d->get_view_projection());
+		camera_data.inv_view_projection = glm::inverse(camera_data.view_projection);
 
         wgpuQueueWriteBuffer(webgpu_context->device_queue, std::get<WGPUBuffer>(camera_uniform.data), 0, &camera_data, sizeof(sCameraData));
+
+        temporal_AA_data.current_sample = (temporal_AA_data.current_sample +1) % temporal_AA_data.num_samples;
+
 
         render_camera_in_gbuffers(render_lists, screen_surface_texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "deferred_render_pass");
 

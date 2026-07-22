@@ -122,6 +122,22 @@ void Camera::update_view_projection_matrix()
     view_projection = projection * view;
 }
 
+glm::mat4x4 Camera::get_view_projection_matrix_jittered(glm::vec2 screen_dimensions, glm::vec2 sample) {
+	
+    return get_projection_matrix_jittered(screen_dimensions, sample) * view;
+}
+
+glm::mat4x4 Camera::get_projection_matrix_jittered(glm::vec2 screen_dimensions, glm::vec2 sample) {
+	glm::vec2 max_jitter = { 1.0 / (2.0 * screen_dimensions.x), 1.0 / (2.0 * screen_dimensions.y) };
+	glm::vec2 jitter = { max_jitter.x * sample.x, max_jitter.y * sample.y };
+
+
+	glm::mat4x4 jitter_matrix = projection;
+	jitter_matrix[0][2] = jitter.x;
+	jitter_matrix[1][2] = jitter.y;
+	return jitter_matrix;
+}
+
 glm::vec3 Camera::get_local_vector(const glm::vec3& vector)
 {
     glm::mat4x4 inverse_view = glm::inverse(view);

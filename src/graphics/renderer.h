@@ -255,6 +255,16 @@ protected:
     sCameraData camera_data;
     sCameraData camera_2d_data;
 
+    struct sTAAData{
+        //between -1 and 1
+        glm::vec2 samples[2];
+		int current_sample = 0;
+		int num_samples = 2;
+
+
+    } temporal_AA_data;
+
+
     void render_shadow_maps();
 
     void render_render_list(WGPURenderPassEncoder render_pass, const std::vector<sRenderData>& render_list, int list_index, const sInstanceData& instance_data, WGPUBindGroup camera_bind_group, uint32_t camera_buffer_stride = 0);
