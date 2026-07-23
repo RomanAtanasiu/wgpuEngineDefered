@@ -144,6 +144,7 @@ protected:
 		Shader *shader = nullptr;
 		Pipeline *pipeline = nullptr;
 		bool activated = false;
+		bool copy_to_texture = false;
 		tPostProcess id = 0; //from 0 to 255
 		std::vector<WGPUBindGroup> bindgroups;
 
@@ -154,7 +155,7 @@ protected:
 		void add_bind_group(WGPUBindGroup bind_group) { bindgroups.push_back(bind_group); }
 	};
 	sPostProcessData post_process_data[MAX_POST_PROCESS_PASS];
-
+    std::vector<Texture *> post_process_dst_textures_queue = {};
     //array of index of the positions of post_process_data in render order
 	int post_process_index[MAX_POST_PROCESS_PASS];
 	int num_declared_post_process_passes = 0;
@@ -260,10 +261,14 @@ protected:
         glm::vec2 samples[8];
 		int current_sample = 0;
 		int num_samples = 8;
+		Texture* accumulation_texture = nullptr;
+		WGPUTextureView accumulation_texture_view = nullptr;
+
+        Pipeline TAA_pass_pipeline;
+		WGPUBindGroup accumulation_texture_bindgroup = nullptr;
 
 
     } temporal_AA_data;
-
 
     void render_shadow_maps();
 
@@ -389,6 +394,9 @@ public:
     void init_multisample_textures();
     void init_timestamp_queries();
 	void init_post_process_bindgroups();
+	void init_accumulation_texture();
+
+
 
     void set_frustum_camera_paused(bool value);
     bool get_frustum_camera_paused();
@@ -512,6 +520,14 @@ public:
 	Shader* post_process_get_shader_by_id(tPostProcess id);
 
 	void post_process_swap_passes(tPostProcess id_a, tPostProcess id_b);
+
+    /*Ask for copying the resulting texture of a post-process pass into a destination texture.
+    * This method must be called before the render() method
+    and the texture can only be adquired after render() method is finished
+    */
+    void post_process_copy_post_process_to_texture(Texture dst, tPostProcess id);
+
+
 
     std::vector<tPostProcess> post_process_get_ids_in_render_order(ePostProcessPositionRender position);
     //end post processing API

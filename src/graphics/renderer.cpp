@@ -216,6 +216,8 @@ int Renderer::post_initialize() {
 	init_post_processing_textures();
 	init_gamma_pass();
 
+    init_accumulation_texture();
+
     init_post_process_bindgroups();
     //Todo: update samples from grid to evenly random samples
     for (int i = 1; i <= temporal_AA_data.num_samples; i++) {
@@ -363,6 +365,9 @@ void Renderer::clean()
 	delete light_buffer_data.texture;
 	delete BufferA.texture;
 	delete BufferB.texture;
+	delete temporal_AA_data.accumulation_texture;
+	delete temporal_AA_data.accumulation_texture_view;
+
     //delete selected_mesh_aabb;
 
     // TODO: WHAT HAPPENS WITH TEXTUREVIEW
@@ -1090,6 +1095,14 @@ void Renderer::render_post_processing_passes(ePostProcessPositionRender position
 			} else {
 				render_post_processing(post_process_data[j].pipeline, post_process_data[j].bindgroups, post_process_data[j].shader->get_path());
 			}
+			if (post_process_data[j].copy_to_texture) {
+				sBufferPostProcess src = post_processing_bool ? BufferB : BufferA;
+				Texture *dst = post_process_dst_textures_queue.back();
+				webgpu_context->copy_texture_to_texture(src.texture->get_texture(), dst->get_texture(),
+						0, 0, BufferA.texture->get_size(), { 0, 0, 0 }, { 0, 0, 0 }, global_command_encoder);
+				post_process_dst_textures_queue.pop_back();
+            }
+
 		}
 	}
 }
@@ -1666,6 +1679,18 @@ void Renderer::init_post_process_bindgroups() {
 		post_processingBA = webgpu_context->create_bind_group(uniforms, post_process_shader, 0);
 
         }
+}
+
+void Renderer::init_accumulation_texture() {
+	temporal_AA_data.accumulation_texture = new Texture();
+	temporal_AA_data.accumulation_texture->create(
+			WGPUTextureDimension_2D,
+			webgpu_context->light_buffer_format,
+			{ webgpu_context->screen_width, webgpu_context->screen_height, 1u },
+			WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding,
+			1u, 1u, nullptr
+    );
+	temporal_AA_data.accumulation_texture_view = temporal_AA_data.accumulation_texture->get_view();
 }
 
 void Renderer::resolve_query_set(WGPUCommandEncoder encoder, uint8_t first_query)
@@ -2335,6 +2360,7 @@ void Renderer::post_process_swap_passes(tPostProcess id_a, tPostProcess id_b) {
     std::swap(post_process_index[index_a], post_process_index[index_b]);
 }
 
+
 std::vector<tPostProcess> Renderer::post_process_get_ids_in_render_order(ePostProcessPositionRender position) {
 	std::vector<tPostProcess> ordered_ids = {};
     for (int i = 0; i < num_declared_post_process_passes; i++) {
@@ -2343,6 +2369,19 @@ std::vector<tPostProcess> Renderer::post_process_get_ids_in_render_order(ePostPr
 		    ordered_ids.push_back(post_process_data[j].id);
     }
 	return ordered_ids;
+}
+
+void Renderer::post_process_copy_post_process_to_texture(Texture dst, tPostProcess id) {
+
+    for (int i = 0; i < num_declared_post_process_passes; i++) {
+		if (post_process_data[i].id == id) {
+			post_process_data[i].copy_to_texture = true;
+			post_process_dst_textures_queue.push_back(&dst);
+			return;
+		}
+	}
+    spdlog::warn("no ids match in post_process_copy_post_process_to_texture");
+
 }
 
 
