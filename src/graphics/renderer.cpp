@@ -1097,8 +1097,8 @@ void Renderer::render_post_processing_passes(ePostProcessPositionRender position
 			}
 			if (post_process_data[j].copy_to_texture) {
 				sBufferPostProcess src = post_processing_bool ? BufferB : BufferA;
-				Texture *dst = post_process_dst_textures_queue.back();
-				webgpu_context->copy_texture_to_texture(src.texture->get_texture(), dst->get_texture(),
+				WGPUTexture dst = post_process_dst_textures_queue.back();
+				webgpu_context->copy_texture_to_texture(src.texture->get_texture(), dst,
 						0, 0, BufferA.texture->get_size(), { 0, 0, 0 }, { 0, 0, 0 }, global_command_encoder);
 				post_process_dst_textures_queue.pop_back();
             }
@@ -1384,7 +1384,7 @@ tPostProcess Renderer::post_process_add_compute_pass(Shader *shader, ePostProces
 	std::vector<WGPUConstantEntry> constants;
 	post_process_data[num_declared_post_process_passes].pipeline = new Pipeline();
 	post_process_data[num_declared_post_process_passes].pipeline->create_compute(post_process_data[num_declared_post_process_passes].shader, entry_point, constants);
-	post_process_data[num_declared_post_process_passes].activated = false;
+	post_process_data[num_declared_post_process_passes].activated = true;
 	post_process_data[num_declared_post_process_passes].position = position;
 
     for (int i = 0; i < 3; ++i) {
@@ -1412,7 +1412,7 @@ tPostProcess Renderer::post_process_add_render_pass(Shader *shader, ePostProcess
 	post_process_data[num_declared_post_process_passes].shader = shader;
 	post_process_data[num_declared_post_process_passes].pipeline = new Pipeline();
 	post_process_data[num_declared_post_process_passes].pipeline->create_render(post_process_data[num_declared_post_process_passes].shader, color_target, { .use_depth = false, .allow_msaa = false });
-	post_process_data[num_declared_post_process_passes].activated = false;
+	post_process_data[num_declared_post_process_passes].activated = true;
 	post_process_data[num_declared_post_process_passes].position = position;
 	tPostProcess id = get_next_post_process_id();
 	post_process_data[num_declared_post_process_passes].id = id;
@@ -2371,12 +2371,12 @@ std::vector<tPostProcess> Renderer::post_process_get_ids_in_render_order(ePostPr
 	return ordered_ids;
 }
 
-void Renderer::post_process_copy_post_process_to_texture(Texture dst, tPostProcess id) {
+void Renderer::post_process_copy_post_process_to_texture(WGPUTexture dst, tPostProcess id) {
 
     for (int i = 0; i < num_declared_post_process_passes; i++) {
 		if (post_process_data[i].id == id) {
 			post_process_data[i].copy_to_texture = true;
-			post_process_dst_textures_queue.push_back(&dst);
+			post_process_dst_textures_queue.push_back(dst);
 			return;
 		}
 	}
