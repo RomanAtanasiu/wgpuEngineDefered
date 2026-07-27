@@ -155,7 +155,7 @@ protected:
 		void add_bind_group(WGPUBindGroup bind_group) { bindgroups.push_back(bind_group); }
 	};
 	sPostProcessData post_process_data[MAX_POST_PROCESS_PASS];
-	std::vector<WGPUTexture> post_process_dst_textures_queue = {};
+	std::vector<Texture*> post_process_dst_textures_queue = {};
     //array of index of the positions of post_process_data in render order
 	int post_process_index[MAX_POST_PROCESS_PASS];
 	int num_declared_post_process_passes = 0;
@@ -525,7 +525,7 @@ public:
     * This method must be called before the render() method
     and the texture can only be adquired after render() method is finished
     */
-    void post_process_copy_post_process_to_texture(WGPUTexture dst, tPostProcess id);
+    void post_process_copy_post_process_to_texture(Texture* dst, tPostProcess id);
 
 
 
