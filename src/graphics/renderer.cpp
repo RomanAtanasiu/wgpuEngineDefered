@@ -51,6 +51,8 @@
 #include "shaders/blur_compute.wgsl.gen.h"
 #include "shaders/black_and_white.wgsl.gen.h"
 
+#include "shaders/TAA.wgsl.gen.h"
+
 #include "spdlog/spdlog.h"
 #include <fstream>
 
@@ -225,8 +227,10 @@ int Renderer::post_initialize() {
 		temporal_AA_data.samples[i-1].y = (float)i / ((float)temporal_AA_data.num_samples + 1.0);
 		temporal_AA_data.samples[i-1] = temporal_AA_data.samples[i-1] * glm::vec2(2.0) - glm::vec2(1.0);
     }
-    
 
+    init_taa_bindgroups();
+	std::vector<WGPUBindGroup> TAA_bindgroups = { temporal_AA_data.accumulation_texture_bindgroup };
+    temporal_AA_data.id = post_process_add_render_pass(temporal_AA_data.TAA_shader, TAA,TAA_bindgroups);
 
 
 #if defined(OPENXR_SUPPORT) && defined(USE_MIRROR_WINDOW)
@@ -330,7 +334,7 @@ void Renderer::clean()
 	wgpuBindGroupRelease(post_processingBA_render); 
 	wgpuBindGroupRelease(post_process_a_to_gamma_bindgroup);
 	wgpuBindGroupRelease(post_process_b_to_gamma_bindgroup);
-
+	wgpuBindGroupRelease(temporal_AA_data.accumulation_texture_bindgroup);
 
 
     camera_uniform.destroy();
@@ -375,7 +379,7 @@ void Renderer::clean()
     delete gbuffer_lighting_pass_shader;
 	delete gamma_pass_shader;
 	//delete[] post_process_data.shader;
-
+	delete temporal_AA_data.TAA_shader;
 
 
 #ifndef __EMSCRIPTEN__
@@ -500,10 +504,14 @@ void Renderer::render()
 		webgpu_context->copy_texture_to_texture(light_buffer_data.texture->get_texture(), BufferA.texture->get_texture(), 0, 0, light_buffer_data.texture->get_size(), { 0, 0, 0 }, { 0, 0, 0 }, global_command_encoder);
 
 		post_processing_bool = true;
-		render_post_processing_passes(AFTER_LIGHT_PASS);
 
+        post_process_copy_post_process_to_texture(temporal_AA_data.accumulation_texture, temporal_AA_data.id);
 
-        render_post_processing_passes(BEFORE_GAMMA_PASS);
+		render_post_processing_passes(BEFORE_TAA);
+
+        render_post_processing_passes(TAA);
+
+        render_post_processing_passes(AFTER_TAA);
 		render_gamma_correction(screen_surface_texture_view, "gamma correction pass");
         //render_camera(render_lists, screen_surface_texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "forward_render");
     }
@@ -1687,10 +1695,22 @@ void Renderer::init_accumulation_texture() {
 			WGPUTextureDimension_2D,
 			webgpu_context->light_buffer_format,
 			{ webgpu_context->screen_width, webgpu_context->screen_height, 1u },
-			WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding,
+			WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopyDst,
 			1u, 1u, nullptr
     );
 	temporal_AA_data.accumulation_texture_view = temporal_AA_data.accumulation_texture->get_view();
+}
+
+void Renderer::init_taa_bindgroups() {
+	temporal_AA_data.TAA_shader = RendererStorage::get_shader_from_source(shaders::TAA::source, shaders::TAA::path, shaders::TAA::libraries);
+
+    std::vector<Uniform *> uniforms;
+	Uniform uniform_TAA;
+	uniform_TAA.data = temporal_AA_data.accumulation_texture_view;
+	uniform_TAA.binding = 0;
+	uniforms.push_back(&uniform_TAA);
+
+    temporal_AA_data.accumulation_texture_bindgroup = webgpu_context->create_bind_group(uniforms, temporal_AA_data.TAA_shader, 1);
 }
 
 void Renderer::resolve_query_set(WGPUCommandEncoder encoder, uint8_t first_query)

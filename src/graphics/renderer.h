@@ -37,8 +37,10 @@ struct sLightUniformData;
 
 typedef uint8_t tPostProcess;
 typedef enum {
-	AFTER_LIGHT_PASS,
-	BEFORE_GAMMA_PASS,
+	BEFORE_TAA,
+	AFTER_TAA,
+
+    TAA
 } ePostProcessPositionRender;
 
 struct sRendererConfiguration {
@@ -258,15 +260,16 @@ protected:
 
     struct sTAAData{
         //between -1 and 1
-        glm::vec2 samples[8];
+        glm::vec2 samples[4];
 		int current_sample = 0;
-		int num_samples = 8;
+		int num_samples = 4;
 		Texture* accumulation_texture = nullptr;
 		WGPUTextureView accumulation_texture_view = nullptr;
 
-        Pipeline TAA_pass_pipeline;
+        Shader* TAA_shader;
 		WGPUBindGroup accumulation_texture_bindgroup = nullptr;
 
+        tPostProcess id;
 
     } temporal_AA_data;
 
@@ -394,8 +397,10 @@ public:
     void init_multisample_textures();
     void init_timestamp_queries();
 	void init_post_process_bindgroups();
-	void init_accumulation_texture();
 
+
+    void init_accumulation_texture();
+	void init_taa_bindgroups();
 
 
     void set_frustum_camera_paused(bool value);
