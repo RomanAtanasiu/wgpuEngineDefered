@@ -35,6 +35,9 @@ struct CameraData {
     //inv_view : mat4x4f,
     //inv_projection : mat4x4f,
     inv_view_projection : mat4x4f,
+    prev_view_projection : mat4x4f,
+    prev_inv_view_projection : mat4x4f,
+
     eye : vec3f,
     exposure : f32,
     right_controller_position : vec3f,

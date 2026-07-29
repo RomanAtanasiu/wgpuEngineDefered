@@ -248,13 +248,25 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_facing: bool) -> Fr
 #else
     m.ao = 1.0;
 #endif // OCLUSSION_TEXTURE
+    
+    let actual_clip_uv = camera_data.view_projection * vec4f(m.pos, 1.0);
+    let actual_ndc = actual_clip_uv.xyz / actual_clip_uv.w;
+    let actual_uv = actual_ndc.xy * 0.5 + vec2f(0.5);
 
+
+
+    let prev_clip_uv = camera_data.prev_view_projection * vec4f(m.pos, 1.0);
+    
+    let prev_ndc = prev_clip_uv.xyz / prev_clip_uv.w;
+    let prev_screen_uv = prev_ndc.xy * 0.5 + vec2f(0.5);
+
+    let velocity = vec2f(prev_screen_uv - actual_uv);
 
     let metallic_roughness = f32(pack2x16float(vec2f(m.metallic,m.roughness)));
     out.gbuffer_albedo_metallic_roughness = vec4f(albedo_color.x, albedo_color.y, albedo_color.z, metallic_roughness);
     
     let normal_encoded = encode(normalize(m.normal));
-    out.gbuffer_normal_velocity = vec4f(normal_encoded.x, normal_encoded.y, 0, 1);
+    out.gbuffer_normal_velocity = vec4f(normal_encoded.x, normal_encoded.y, velocity.x, velocity.y);
 
     // m.roughness = max(m.roughness, 0.04);
     // m.diffuse = mix(m.albedo, vec3f(0.0), m.metallic);

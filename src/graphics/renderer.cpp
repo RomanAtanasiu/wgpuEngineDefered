@@ -229,7 +229,7 @@ int Renderer::post_initialize() {
     }
 
     init_taa_bindgroups();
-	std::vector<WGPUBindGroup> TAA_bindgroups = { temporal_AA_data.accumulation_texture_bindgroup };
+	std::vector<WGPUBindGroup> TAA_bindgroups = { temporal_AA_data.textures_bindgroup };
     temporal_AA_data.id = post_process_add_render_pass(temporal_AA_data.TAA_shader, TAA,TAA_bindgroups);
 
 
@@ -334,7 +334,7 @@ void Renderer::clean()
 	wgpuBindGroupRelease(post_processingBA_render); 
 	wgpuBindGroupRelease(post_process_a_to_gamma_bindgroup);
 	wgpuBindGroupRelease(post_process_b_to_gamma_bindgroup);
-	wgpuBindGroupRelease(temporal_AA_data.accumulation_texture_bindgroup);
+	wgpuBindGroupRelease(temporal_AA_data.textures_bindgroup);
 
 
     camera_uniform.destroy();
@@ -478,15 +478,19 @@ void Renderer::render()
 
     if (!is_xr_available) {
         camera_data.right_controller_position = camera_data.eye;
+		camera_data.prev_view_projection = camera_data.view_projection;
 
         prepare_cull_instancing(*camera_3d, render_lists, render_instances_data);
 
         camera_data.eye = camera_3d->get_eye();
 		temporal_AA_data.samples[temporal_AA_data.current_sample];
 		camera_data.view_projection = camera_3d->get_view_projection_matrix_jittered(camera_data.screen_size, temporal_AA_data.samples[temporal_AA_data.current_sample]);
+		//camera_data.view_projection = camera_3d->get_view_projection();
         camera_data.view = camera_3d->get_view();
 		camera_data.projection = camera_3d->get_projection_matrix_jittered(camera_data.screen_size, temporal_AA_data.samples[temporal_AA_data.current_sample]);
-		//camera_data.inv_view_projection = glm::inverse(camera_3d->get_view_projection());
+		//camera_data.projection = camera_3d->get_projection();
+
+		camera_data.inv_view_projection = glm::inverse(camera_3d->get_view_projection());
 		camera_data.inv_view_projection = glm::inverse(camera_data.view_projection);
 
         wgpuQueueWriteBuffer(webgpu_context->device_queue, std::get<WGPUBuffer>(camera_uniform.data), 0, &camera_data, sizeof(sCameraData));
@@ -1705,12 +1709,19 @@ void Renderer::init_taa_bindgroups() {
 	temporal_AA_data.TAA_shader = RendererStorage::get_shader_from_source(shaders::TAA::source, shaders::TAA::path, shaders::TAA::libraries);
 
     std::vector<Uniform *> uniforms;
-	Uniform uniform_TAA;
-	uniform_TAA.data = temporal_AA_data.accumulation_texture_view;
-	uniform_TAA.binding = 0;
-	uniforms.push_back(&uniform_TAA);
+	Uniform uniform_accumulation;
+	uniform_accumulation.data = temporal_AA_data.accumulation_texture_view;
+	uniform_accumulation.binding = 0;
+	uniforms.push_back(&uniform_accumulation);
 
-    temporal_AA_data.accumulation_texture_bindgroup = webgpu_context->create_bind_group(uniforms, temporal_AA_data.TAA_shader, 1);
+
+    Uniform uniform_velocity_vectors;
+	uniform_velocity_vectors.data = gbuffer_data.texture_views[1];
+	uniform_velocity_vectors.binding = 1;
+	uniforms.push_back(&uniform_velocity_vectors);
+
+
+    temporal_AA_data.textures_bindgroup = webgpu_context->create_bind_group(uniforms, temporal_AA_data.TAA_shader, 1);
 }
 
 void Renderer::resolve_query_set(WGPUCommandEncoder encoder, uint8_t first_query)

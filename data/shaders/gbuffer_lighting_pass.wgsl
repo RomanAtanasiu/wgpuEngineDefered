@@ -144,7 +144,9 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
         out.color = vec4f(albedo_metallic_roughness.rgb,1.0);
     }
     else if (camera_data.show_gbuffers == 2){
-        out.color = vec4f(normal_velocity);
+        //out.color = vec4f(normal_velocity);
+        out.color = vec4f(normal_velocity.ba,0.0,1.0);
+
     } else{
         out.color = vec4f(vec3f(depth),1.0);
     }

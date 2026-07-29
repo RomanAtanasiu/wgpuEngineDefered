@@ -237,6 +237,8 @@ protected:
         //glm::mat4x4 inv_view;
         //glm::mat4x4 inv_projection;
         glm::mat4x4 inv_view_projection;
+		glm::mat4x4 prev_view_projection;
+		glm::mat4x4 prev_inv_view_projection;
 
         glm::vec3 eye = {};
         float exposure = 1.0f;
@@ -267,7 +269,7 @@ protected:
 		WGPUTextureView accumulation_texture_view = nullptr;
 
         Shader* TAA_shader;
-		WGPUBindGroup accumulation_texture_bindgroup = nullptr;
+		WGPUBindGroup textures_bindgroup = nullptr;
 
         tPostProcess id;
 
