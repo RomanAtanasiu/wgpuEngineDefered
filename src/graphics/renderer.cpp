@@ -1104,7 +1104,7 @@ void Renderer::render_post_processing_passes(ePostProcessPositionRender position
 				render_post_processing(post_process_data[j].pipeline, post_process_data[j].bindgroups, post_process_data[j].shader->get_path());
 			}
 			if (post_process_data[j].copy_to_texture) {
-				sBufferPostProcess src = post_processing_bool ? BufferB : BufferA;
+				sBufferPostProcess src = post_processing_bool ? BufferA : BufferB;
 				Texture* dst = post_process_dst_textures_queue.back();
 				webgpu_context->copy_texture_to_texture(src.texture->get_texture(), dst->get_texture(),
 						0, 0, BufferA.texture->get_size(), { 0, 0, 0 }, { 0, 0, 0 }, global_command_encoder);
