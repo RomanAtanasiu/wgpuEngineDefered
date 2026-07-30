@@ -218,7 +218,7 @@ int Renderer::post_initialize() {
 	init_post_processing_textures();
 	init_gamma_pass();
 
-    init_accumulation_texture();
+    init_taa_textures();
 
     init_post_process_bindgroups();
     //Todo: update samples from grid to evenly random samples
@@ -336,7 +336,6 @@ void Renderer::clean()
 	wgpuBindGroupRelease(post_process_b_to_gamma_bindgroup);
 	wgpuBindGroupRelease(temporal_AA_data.textures_bindgroup);
 
-
     camera_uniform.destroy();
     camera_2d_uniform.destroy();
     shadow_camera_uniform.destroy();
@@ -371,7 +370,8 @@ void Renderer::clean()
 	delete BufferB.texture;
 	delete temporal_AA_data.accumulation_texture;
 	delete temporal_AA_data.accumulation_texture_view;
-
+	delete temporal_AA_data.prev_velocity_texture;
+	delete temporal_AA_data.prev_velocity_texture_view;
     //delete selected_mesh_aabb;
 
     // TODO: WHAT HAPPENS WITH TEXTUREVIEW
@@ -514,6 +514,7 @@ void Renderer::render()
 		render_post_processing_passes(BEFORE_TAA);
 
         render_post_processing_passes(TAA);
+		webgpu_context->copy_texture_to_texture(gbuffer_data.textures[1].get_texture(), temporal_AA_data.prev_velocity_texture->get_texture(), 0, 0, light_buffer_data.texture->get_size(), { 0, 0, 0 }, { 0, 0, 0 }, global_command_encoder);
 
         render_post_processing_passes(AFTER_TAA);
 		render_gamma_correction(screen_surface_texture_view, "gamma correction pass");
@@ -1301,7 +1302,7 @@ void Renderer::init_gbuffers() {
         gbuffer_data.textures[i].create(WGPUTextureDimension_2D,
             webgpu_context->gbuffer_format.GBUFFER_FORMAT,
             { webgpu_context->gbuffer_format.width, webgpu_context->gbuffer_format.height, 1u },
-            WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding,
+            WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_StorageBinding | WGPUTextureUsage_CopySrc,
             1u,
             1u,
             nullptr);
@@ -1693,6 +1694,23 @@ void Renderer::init_post_process_bindgroups() {
         }
 }
 
+void Renderer::init_taa_textures() {
+	init_accumulation_texture();
+	init_prev_velocity_buffer_texture();
+
+}
+
+void Renderer::init_prev_velocity_buffer_texture() {
+	temporal_AA_data.prev_velocity_texture = new Texture();
+	temporal_AA_data.prev_velocity_texture->create(
+			WGPUTextureDimension_2D,
+			webgpu_context->gbuffer_format.GBUFFER_FORMAT,
+			{ webgpu_context->screen_width, webgpu_context->screen_height, 1u },
+			WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopyDst,
+			1u, 1u, nullptr);
+	temporal_AA_data.prev_velocity_texture_view = temporal_AA_data.prev_velocity_texture->get_view();
+}
+
 void Renderer::init_accumulation_texture() {
 	temporal_AA_data.accumulation_texture = new Texture();
 	temporal_AA_data.accumulation_texture->create(
@@ -1720,6 +1738,10 @@ void Renderer::init_taa_bindgroups() {
 	uniform_velocity_vectors.binding = 1;
 	uniforms.push_back(&uniform_velocity_vectors);
 
+    Uniform uniform_prev_velocity_vectors;
+	uniform_prev_velocity_vectors.data = temporal_AA_data.prev_velocity_texture_view;
+	uniform_prev_velocity_vectors.binding = 2;
+	uniforms.push_back(&uniform_prev_velocity_vectors);
 
     temporal_AA_data.textures_bindgroup = webgpu_context->create_bind_group(uniforms, temporal_AA_data.TAA_shader, 1);
 }

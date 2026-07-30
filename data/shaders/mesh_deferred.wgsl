@@ -260,7 +260,8 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_facing: bool) -> Fr
     let prev_ndc = prev_clip_uv.xyz / prev_clip_uv.w;
     let prev_screen_uv = prev_ndc.xy * 0.5 + vec2f(0.5);
 
-    let velocity = vec2f(prev_screen_uv - actual_uv);
+    let velocity = vec2f(actual_uv - prev_screen_uv);
+   // let velocity = vec2f(actual_ndc.xy - prev_ndc.xy);
 
     let metallic_roughness = f32(pack2x16float(vec2f(m.metallic,m.roughness)));
     out.gbuffer_albedo_metallic_roughness = vec4f(albedo_color.x, albedo_color.y, albedo_color.z, metallic_roughness);

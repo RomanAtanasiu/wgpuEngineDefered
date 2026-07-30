@@ -268,7 +268,10 @@ protected:
 		Texture* accumulation_texture = nullptr;
 		WGPUTextureView accumulation_texture_view = nullptr;
 
-        Shader* TAA_shader;
+        Texture* prev_velocity_texture = nullptr;
+		WGPUTextureView prev_velocity_texture_view = nullptr; 
+
+        Shader* TAA_shader = nullptr;
 		WGPUBindGroup textures_bindgroup = nullptr;
 
         tPostProcess id;
@@ -400,7 +403,8 @@ public:
     void init_timestamp_queries();
 	void init_post_process_bindgroups();
 
-
+    void init_taa_textures();
+	void init_prev_velocity_buffer_texture();
     void init_accumulation_texture();
 	void init_taa_bindgroups();
 
