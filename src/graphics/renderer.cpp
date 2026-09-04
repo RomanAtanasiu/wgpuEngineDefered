@@ -222,11 +222,22 @@ int Renderer::post_initialize() {
 
     init_post_process_bindgroups();
     //Todo: update samples from grid to evenly random samples
-    for (int i = 1; i <= temporal_AA_data.num_samples; i++) {
-		temporal_AA_data.samples[i-1].x = (float)i / ((float)temporal_AA_data.num_samples + 1.0);
-		temporal_AA_data.samples[i-1].y = (float)i / ((float)temporal_AA_data.num_samples + 1.0);
-		temporal_AA_data.samples[i-1] = temporal_AA_data.samples[i-1] * glm::vec2(2.0) - glm::vec2(1.0);
-    }
+	 int num_samples = temporal_AA_data.num_samples;
+	 int grid_size = (int)(std::ceil(std::sqrt(num_samples)));
+
+	for (int i = 0; i < num_samples; ++i) {
+		 int column = i % grid_size;
+		 int row = i / grid_size;
+
+		 float x = (float)(column + 1) /
+				 (float)(grid_size + 1);
+
+		 float y = (float)(row + 1) /
+				 (float)(grid_size + 1);
+
+		temporal_AA_data.samples[i] =
+				glm::vec2(x, y) * 2.0f - glm::vec2(1.0f);
+	}
 
     init_taa_bindgroups();
 	std::vector<WGPUBindGroup> TAA_bindgroups = { temporal_AA_data.textures_bindgroup };
@@ -483,18 +494,32 @@ void Renderer::render()
         prepare_cull_instancing(*camera_3d, render_lists, render_instances_data);
 
         camera_data.eye = camera_3d->get_eye();
-		temporal_AA_data.samples[temporal_AA_data.current_sample];
-		camera_data.view_projection = camera_3d->get_view_projection_matrix_jittered(camera_data.screen_size, temporal_AA_data.samples[temporal_AA_data.current_sample]);
+		camera_data.view_projection = camera_3d->get_view_projection_matrix_jittered(glm::vec2(webgpu_context->render_width, webgpu_context->render_height), temporal_AA_data.samples[temporal_AA_data.current_sample]);
 		//camera_data.view_projection = camera_3d->get_view_projection();
         camera_data.view = camera_3d->get_view();
-		camera_data.projection = camera_3d->get_projection_matrix_jittered(camera_data.screen_size, temporal_AA_data.samples[temporal_AA_data.current_sample]);
-		//camera_data.projection = camera_3d->get_projection();
+		//camera_data.projection = camera_3d->get_projection_matrix_jittered(camera_data.screen_size, temporal_AA_data.samples[temporal_AA_data.current_sample]);
+		camera_data.projection = camera_3d->get_projection_matrix_jittered(glm::vec2(webgpu_context->render_width, webgpu_context->render_height), temporal_AA_data.samples[temporal_AA_data.current_sample]);
+
+
+        //camera_data.projection = camera_3d->get_projection();
 
 		camera_data.inv_view_projection = glm::inverse(camera_3d->get_view_projection());
 		camera_data.inv_view_projection = glm::inverse(camera_data.view_projection);
 
+        int prev_sample_jitter = (temporal_AA_data.current_sample - 1) % temporal_AA_data.num_samples;
+		int actual_sample_jitter = (temporal_AA_data.current_sample) % temporal_AA_data.num_samples;
+
+        float jitter_x = temporal_AA_data.samples[actual_sample_jitter].x * (1.0 / (2.0 * webgpu_context->render_width)); 
+		float jitter_y = temporal_AA_data.samples[actual_sample_jitter].y * (1.0 / (2.0 * webgpu_context->render_height)); 
+        camera_data.jitter = glm::vec2(jitter_x, jitter_y);
+
+
+        jitter_x = temporal_AA_data.samples[prev_sample_jitter].x * (1.0 / (2.0 * webgpu_context->render_width));
+		jitter_y = temporal_AA_data.samples[prev_sample_jitter].y * (1.0 / (2.0 * webgpu_context->render_height)); 
+		camera_data.prev_jitter = glm::vec2(jitter_x, jitter_y);
         wgpuQueueWriteBuffer(webgpu_context->device_queue, std::get<WGPUBuffer>(camera_uniform.data), 0, &camera_data, sizeof(sCameraData));
 
+        
         temporal_AA_data.current_sample = (temporal_AA_data.current_sample +1) % temporal_AA_data.num_samples;
 
 
@@ -720,7 +745,9 @@ void Renderer::render_camera_in_gbuffers(const std::vector<std::vector<sRenderDa
         gbuffer_attachments[i].loadOp = WGPULoadOp_Clear;
         gbuffer_attachments[i].storeOp = WGPUStoreOp_Store;
         gbuffer_attachments[i].depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
-        gbuffer_attachments[i].clearValue = WGPUColor{ clear_color.r, clear_color.g, clear_color.b, clear_color.a };
+        //gbuffer_attachments[i].clearValue = WGPUColor{ clear_color.r, clear_color.g, clear_color.b, clear_color.a };
+		gbuffer_attachments[i].clearValue = WGPUColor{ 0.0,0.0, 0.0, 0.0 };
+
     }
 
     WGPURenderPassDepthStencilAttachment render_pass_depth_attachment = {};
@@ -1705,7 +1732,7 @@ void Renderer::init_prev_velocity_buffer_texture() {
 	temporal_AA_data.prev_velocity_texture->create(
 			WGPUTextureDimension_2D,
 			webgpu_context->gbuffer_format.GBUFFER_FORMAT,
-			{ webgpu_context->screen_width, webgpu_context->screen_height, 1u },
+			{ webgpu_context->render_width, webgpu_context->render_height, 1u },
 			WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopyDst,
 			1u, 1u, nullptr);
 	temporal_AA_data.prev_velocity_texture_view = temporal_AA_data.prev_velocity_texture->get_view();
@@ -1716,7 +1743,7 @@ void Renderer::init_accumulation_texture() {
 	temporal_AA_data.accumulation_texture->create(
 			WGPUTextureDimension_2D,
 			webgpu_context->light_buffer_format,
-			{ webgpu_context->screen_width, webgpu_context->screen_height, 1u },
+			{ webgpu_context->render_width, webgpu_context->render_height, 1u },
 			WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopyDst,
 			1u, 1u, nullptr
     );
@@ -1918,6 +1945,14 @@ void Renderer::prepare_cull_instancing(const Camera& camera, std::vector<std::ve
 
     for (int i = 0; i < RENDER_LIST_COUNT; ++i) {
 
+        std::unordered_map<uint32_t, glm::mat4x4> previous_matrix_list = {};
+        if (i ==RENDER_LIST_OPAQUE) {
+			for (sIdUniformData instance : instances_data.instances_data[i]) {
+				previous_matrix_list.insert({ instance.id, instance.model });
+			}
+        }
+
+
         instances_data.instances_data[i].clear();
         instances_data.instances_data[i].resize(render_lists[i].size());
 
@@ -1981,9 +2016,26 @@ void Renderer::prepare_cull_instancing(const Camera& camera, std::vector<std::ve
                 prev_surface = render_data.surface;
                 prev_material = material;
 
-                // Fill instance_data
-                instances_data.instances_data[i][j] = { render_data.global_matrix };
+                 // Fill instance_data
+				if (i == RENDER_LIST_OPAQUE) {
+					auto iterator = previous_matrix_list.find(instances_data.instances_data[i][j].id);
+					if (iterator != previous_matrix_list.end()) { //if it was in previous list
+                        //reuse id
+						sUniformData matrices = { render_data.global_matrix, iterator->second };
+						instances_data.instances_data[i][j] = { render_data.global_matrix, iterator->second, instances_data.instances_data[i][j].id };
+
+					} else {
+                        //create new id
+						instances_data.max_id_opaque++;
+						instances_data.instances_data[i][j] = { render_data.global_matrix, render_data.global_matrix, instances_data.max_id_opaque };
+					}
+				} else {
+                    //regular fill instance data
+					instances_data.instances_data[i][j] = { render_data.global_matrix, render_data.global_matrix, 0};
+                }
+
             }
+			previous_matrix_list.clear();
 
             if (repeats > 0) {
                 for (uint32_t k = 1; k <= repeats; k++) {
@@ -1995,6 +2047,12 @@ void Renderer::prepare_cull_instancing(const Camera& camera, std::vector<std::ve
         // Fill instance buffers
         uint32_t instances = static_cast<uint32_t>(instances_data.instances_data[i].size());
 
+        std::vector<sUniformData> instance_data_without_id = {};
+		for (sIdUniformData instance : instances_data.instances_data[i]) {
+			instance_data_without_id.push_back({ instance.model, instance.prev_global_matrix });
+		}
+			
+
         if (instances > (instances_data.instances_data_uniforms[i].buffer_size / sizeof(sUniformData))) {
 
             //std::vector<sUniformData> default_data = { instances, { glm::mat4x4(1.0f), glm::vec4(1.0f) } };
@@ -2003,7 +2061,9 @@ void Renderer::prepare_cull_instancing(const Camera& camera, std::vector<std::ve
                 wgpuBufferDestroy(std::get<WGPUBuffer>(instances_data.instances_data_uniforms[i].data));
             }
 
-            instances_data.instances_data_uniforms[i].data = webgpu_context->create_buffer(sizeof(sUniformData) * instances, WGPUBufferUsage_CopyDst | WGPUBufferUsage_Storage, instances_data.instances_data[i].data(), "instance_mesh_buffer");
+
+
+            instances_data.instances_data_uniforms[i].data = webgpu_context->create_buffer(sizeof(sUniformData) * instances, WGPUBufferUsage_CopyDst | WGPUBufferUsage_Storage, instance_data_without_id.data(), "instance_mesh_buffer");
             instances_data.instances_data_uniforms[i].binding = 0;
             instances_data.instances_data_uniforms[i].buffer_size = sizeof(sUniformData) * instances;
 
@@ -2026,7 +2086,7 @@ void Renderer::prepare_cull_instancing(const Camera& camera, std::vector<std::ve
         }
         else
             if (instances > 0) {
-                webgpu_context->update_buffer(std::get<WGPUBuffer>(instances_data.instances_data_uniforms[i].data), 0, instances_data.instances_data[i].data(), sizeof(sUniformData) * instances);
+			    webgpu_context->update_buffer(std::get<WGPUBuffer>(instances_data.instances_data_uniforms[i].data), 0, instance_data_without_id.data(), sizeof(sUniformData) * instances);
             }
     }
 }

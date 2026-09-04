@@ -75,6 +75,7 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
 
 
     var uv_clip = vec2f(in.uv.x * 2.0 - 1.0, 1.0 - 2.0 * in.uv.y);
+    //var uv_clip = in.uv * 2.0 - vec2f(1.0);
     var clip_coords = vec4f(
         uv_clip.x, 
         uv_clip.y,

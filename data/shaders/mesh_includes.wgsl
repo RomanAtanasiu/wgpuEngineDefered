@@ -21,7 +21,9 @@ struct VertexOutput {
 };
 
 struct RenderMeshData {
-    model  : mat4x4f
+    model  : mat4x4f,
+    prev_model : mat4x4f,
+   // id: u32
 };
 
 struct InstanceData {
@@ -48,6 +50,7 @@ struct CameraData {
     show_gbuffers: i32,
     //show_gbuffer_num: i32,
     
-    dummy: vec3f,
+    jitter: vec2f,
+    prev_jitter: vec2f,
     dummy_for_inv: array<vec4<i32>, 11>,
 };

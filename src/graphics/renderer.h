@@ -198,6 +198,7 @@ protected:
 
     struct sUniformData {
         glm::mat4x4 model;
+		glm::mat4x4 prev_global_matrix;
     };
 
     struct sRenderListData {
@@ -222,10 +223,17 @@ protected:
         RENDER_LIST_COUNT
     };
 
+    struct sIdUniformData {
+		glm::mat4x4 model;
+		glm::mat4x4 prev_global_matrix;
+		uint32_t id;
+    };
+
     struct sInstanceData {
-        std::vector<sUniformData> instances_data[RENDER_LIST_COUNT];
+		std::vector<sIdUniformData> instances_data[RENDER_LIST_COUNT];
         Uniform	instances_data_uniforms[RENDER_LIST_COUNT];
         WGPUBindGroup instances_bind_groups[RENDER_LIST_COUNT] = {};
+		uint32_t max_id_opaque = 0;
     };
 
 
@@ -252,7 +260,8 @@ protected:
 		uint32_t show_gbuffers = 0; 
 		//uint32_t gbuffer_num;
 
-        glm::vec4 dummy;
+        glm::vec2 jitter;
+		glm::vec2 prev_jitter;
 		glm::vec4 dummy_for_inv[12];
     };
 
@@ -262,9 +271,9 @@ protected:
 
     struct sTAAData{
         //between -1 and 1
-        glm::vec2 samples[4];
+        glm::vec2 samples[9];
 		int current_sample = 0;
-		int num_samples = 4;
+		int num_samples = 9;
 		Texture* accumulation_texture = nullptr;
 		WGPUTextureView accumulation_texture_view = nullptr;
 

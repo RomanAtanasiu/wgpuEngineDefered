@@ -23,6 +23,13 @@ fn encode(n_in: vec3<f32>) -> vec2<f32> {
     n.y = temp.y;
     return n.xy;
 }
+
+fn clip_to_uv(v: vec3<f32>) -> vec2<f32> {
+    let ndc = v.xy / v.z;
+    return vec2f(0.5 + ndc.x * 0.5, 0.5 - ndc.y * 0.5);
+    //return vec2f(0.5 + ndc.x * 0.5, 0.5 + ndc.y * 0.5);
+}
+
 #define GAMMA_CORRECTION
 
 @group(0) @binding(0) var<storage, read> mesh_data : InstanceData;
@@ -162,7 +169,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     out.color = vec4f(in.color, 1.0) * albedo;
 
     // incorrect with scaling/non-uniform scaling
-    //out.normal = normalize((instance_data.model * normals).xyz);
+    //out.normal = normalize((instance_data.model * normals).xyz)model
     out.normal = normalize(adjoint(instance_data.model) * normals.xyz);
 
 #ifdef HAS_TANGENTS
@@ -260,9 +267,11 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_facing: bool) -> Fr
     let prev_ndc = prev_clip_uv.xyz / prev_clip_uv.w;
     let prev_screen_uv = prev_ndc.xy * 0.5 + vec2f(0.5);
 
-    let velocity = vec2f(actual_uv - prev_screen_uv);
+    var velocity = vec2f(actual_uv - prev_screen_uv);
    // let velocity = vec2f(actual_ndc.xy - prev_ndc.xy);
-
+    let jitter = camera_data.jitter;// * vec2f(1.0 / (2.0*camera_data.screen_size.x), 1.0 / (2.0*camera_data.screen_size.y));
+    //velocity = velocity - jitter;
+    //velocity = velocity + camera_data.prev_jitter;//* vec2f(1.0 / (2.0*camera_data.screen_size.x), 1.0 / (2.0*camera_data.screen_size.y));
     let metallic_roughness = f32(pack2x16float(vec2f(m.metallic,m.roughness)));
     out.gbuffer_albedo_metallic_roughness = vec4f(albedo_color.x, albedo_color.y, albedo_color.z, metallic_roughness);
     
