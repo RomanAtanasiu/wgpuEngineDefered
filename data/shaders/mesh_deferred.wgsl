@@ -24,8 +24,8 @@ fn encode(n_in: vec3<f32>) -> vec2<f32> {
     return n.xy;
 }
 
-fn clip_to_uv(v: vec3<f32>) -> vec2<f32> {
-    let ndc = v.xy / v.z;
+fn clip_to_uv(v: vec4<f32>) -> vec2<f32> {
+    let ndc = v.xy / v.w;
     return vec2f(0.5 + ndc.x * 0.5, 0.5 - ndc.y * 0.5);
     //return vec2f(0.5 + ndc.x * 0.5, 0.5 + ndc.y * 0.5);
 }
@@ -165,6 +165,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     var world_position = instance_data.model * position;
     out.world_position = world_position.xyz;
     out.position = camera_data.view_projection * world_position;
+    out.prev_world_position = (instance_data.prev_model * position).xyz;
     out.uv = in.uv; // forward to the fragment shader
     out.color = vec4f(in.color, 1.0) * albedo;
 
@@ -255,22 +256,23 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_facing: bool) -> Fr
 #else
     m.ao = 1.0;
 #endif // OCLUSSION_TEXTURE
-    
+    //transform current world position to current screen space
     let actual_clip_uv = camera_data.view_projection * vec4f(m.pos, 1.0);
-    let actual_ndc = actual_clip_uv.xyz / actual_clip_uv.w;
-    let actual_uv = actual_ndc.xy * 0.5 + vec2f(0.5);
+    let actual_uv = clip_to_uv(actual_clip_uv);
+
+//transform object's previous world position to screen space 
+    let prev_obj_clip_uv = camera_data.prev_view_projection * vec4f(in.prev_world_position, 1.0);
+    let prev_obj_uv = clip_to_uv(prev_obj_clip_uv);
 
 
 
-    let prev_clip_uv = camera_data.prev_view_projection * vec4f(m.pos, 1.0);
-    
-    let prev_ndc = prev_clip_uv.xyz / prev_clip_uv.w;
-    let prev_screen_uv = prev_ndc.xy * 0.5 + vec2f(0.5);
-
-    var velocity = vec2f(actual_uv - prev_screen_uv);
+    var velocity = vec2f(actual_uv - prev_obj_uv);
    // let velocity = vec2f(actual_ndc.xy - prev_ndc.xy);
-    let jitter = camera_data.jitter;// * vec2f(1.0 / (2.0*camera_data.screen_size.x), 1.0 / (2.0*camera_data.screen_size.y));
-    //velocity = velocity - jitter;
+ //   let jitter = camera_data.jitter;// * vec2f(1.0 / (2.0*camera_data.screen_size.x), 1.0 / (2.0*camera_data.screen_size.y));
+   // velocity = velocity - jitter;
+
+
+    //velocity = velocity * 1000.0;
     //velocity = velocity + camera_data.prev_jitter;//* vec2f(1.0 / (2.0*camera_data.screen_size.x), 1.0 / (2.0*camera_data.screen_size.y));
     let metallic_roughness = f32(pack2x16float(vec2f(m.metallic,m.roughness)));
     out.gbuffer_albedo_metallic_roughness = vec4f(albedo_color.x, albedo_color.y, albedo_color.z, metallic_roughness);
@@ -278,6 +280,10 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_facing: bool) -> Fr
     let normal_encoded = encode(normalize(m.normal));
     out.gbuffer_normal_velocity = vec4f(normal_encoded.x, normal_encoded.y, velocity.x, velocity.y);
 
+
+    if(all(in.prev_world_position == vec3f(0.0)) && all(in.prev_world_position != vec3f(0.0))){
+            out.gbuffer_normal_velocity = vec4f(1.0, 0.0, 0.0, 0.0);
+    }
     // m.roughness = max(m.roughness, 0.04);
     // m.diffuse = mix(m.albedo, vec3f(0.0), m.metallic);
     // m.f0 = mix(vec3f(0.04), m.albedo, m.metallic);

@@ -15,9 +15,10 @@ struct VertexOutput {
     @location(0) uv: vec2f,
     @location(1) color: vec4f,
     @location(2) world_position: vec3f,
-    @location(3) normal: vec3f,
-    @location(4) tangent : vec3f,
-    @location(5) bitangent : vec3f,
+    @location(3) prev_world_position: vec3f,
+    @location(4) normal: vec3f,
+    @location(5) tangent : vec3f,
+    @location(6) bitangent : vec3f,
 };
 
 struct RenderMeshData {

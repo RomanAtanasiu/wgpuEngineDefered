@@ -1,6 +1,6 @@
 #include mesh_includes.wgsl
 
-@group(0) @binding(0) var in_texture: texture_2d<f32>;//light buffer+post-processing texture
+@group(0) @binding(0) var in_texture: texture_2d<f32>;//light buffer+post-processing effects
 @group(1) @binding(0) var accumulation_buffer: texture_2d<f32>;
 @group(1) @binding(1) var gbuffer_normal_velocity: texture_2d<f32>;
 @group(1) @binding(2) var prev_velocity_buffer: texture_2d<f32>;

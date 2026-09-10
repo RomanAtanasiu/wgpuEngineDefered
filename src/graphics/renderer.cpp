@@ -728,6 +728,7 @@ void Renderer::render()
         timestamps_requested = false;
     }
 #endif
+	prev_render_entity_list = render_entity_list;
 
     clear_renderables();
 }
@@ -1888,12 +1889,19 @@ void Renderer::prepare_cull_instancing(const Camera& camera, std::vector<std::ve
         frustum_cull.set_view_projection(camera.get_view_projection());
     }
 
+    // ON the render_list we have the id (node name) that emits the drawcall, the mesh resource that the drawcall will
+    // render, and the model matrix of the mesh on the scene.
+    // The Mesh is composed by a series of surfaces, that have a local model matrix.
+    // We need to store the model matrix by surface and by node in order to be retrieved on the next frame,
+    // for motion vector calculation. Note that how we identify from which surface do we need to read the model matrix
+    // we can just use the index of the current surface in the surface list of the Mesh.
+    // 
     // Get all surfaces from entity meshes
     for (auto render_list_data : render_entity_list)
     {
         Mesh* mesh = render_list_data.mesh;
         glm::mat4x4 global_matrix = render_list_data.global_matrix;
-
+		std::string id = render_list_data.id;
         const std::vector<Surface*>& surfaces = mesh->get_surfaces();
 
         for (Surface* surface : surfaces) {
@@ -1939,18 +1947,13 @@ void Renderer::prepare_cull_instancing(const Camera& camera, std::vector<std::ve
                 list = RENDER_LIST_TRANSPARENT;
             }
 
-            render_lists[list].push_back({ surface, 1, global_matrix, mesh, material });
+            render_lists[list].push_back({ surface, 1, global_matrix, mesh, material, id }); // ID
         }
     }
 
     for (int i = 0; i < RENDER_LIST_COUNT; ++i) {
 
-        std::unordered_map<uint32_t, glm::mat4x4> previous_matrix_list = {};
-        if (i ==RENDER_LIST_OPAQUE) {
-			for (sIdUniformData instance : instances_data.instances_data[i]) {
-				previous_matrix_list.insert({ instance.id, instance.model });
-			}
-        }
+
 
 
         instances_data.instances_data[i].clear();
@@ -2017,25 +2020,29 @@ void Renderer::prepare_cull_instancing(const Camera& camera, std::vector<std::ve
                 prev_material = material;
 
                  // Fill instance_data
+				//regular fill instance data
+				instances_data.instances_data[i][j] = { render_data.global_matrix, render_data.global_matrix};
+                //check if needed prev_global_matrix for motion vectors for opaques
 				if (i == RENDER_LIST_OPAQUE) {
-					auto iterator = previous_matrix_list.find(instances_data.instances_data[i][j].id);
-					if (iterator != previous_matrix_list.end()) { //if it was in previous list
-                        //reuse id
-						sUniformData matrices = { render_data.global_matrix, iterator->second };
-						instances_data.instances_data[i][j] = { render_data.global_matrix, iterator->second, instances_data.instances_data[i][j].id };
+					bool was_in_previous_frame = false;
+					glm::mat4x4 prev_mat;
+					for (auto prev_entity : prev_render_entity_list) {
+						if (prev_entity.id == render_data.id) {
+							was_in_previous_frame = true;
+							prev_mat = prev_entity.global_matrix;
+							continue;
+                        }
+                    }
 
-					} else {
-                        //create new id
-						instances_data.max_id_opaque++;
-						instances_data.instances_data[i][j] = { render_data.global_matrix, render_data.global_matrix, instances_data.max_id_opaque };
-					}
-				} else {
-                    //regular fill instance data
-					instances_data.instances_data[i][j] = { render_data.global_matrix, render_data.global_matrix, 0};
-                }
+                    if (was_in_previous_frame) {
+						instances_data.instances_data[i][j] = { render_data.global_matrix, prev_mat };
+					} 
+				} 
+                   
+                
 
             }
-			previous_matrix_list.clear();
+
 
             if (repeats > 0) {
                 for (uint32_t k = 1; k <= repeats; k++) {
@@ -2047,10 +2054,7 @@ void Renderer::prepare_cull_instancing(const Camera& camera, std::vector<std::ve
         // Fill instance buffers
         uint32_t instances = static_cast<uint32_t>(instances_data.instances_data[i].size());
 
-        std::vector<sUniformData> instance_data_without_id = {};
-		for (sIdUniformData instance : instances_data.instances_data[i]) {
-			instance_data_without_id.push_back({ instance.model, instance.prev_global_matrix });
-		}
+
 			
 
         if (instances > (instances_data.instances_data_uniforms[i].buffer_size / sizeof(sUniformData))) {
@@ -2063,8 +2067,8 @@ void Renderer::prepare_cull_instancing(const Camera& camera, std::vector<std::ve
 
 
 
-            instances_data.instances_data_uniforms[i].data = webgpu_context->create_buffer(sizeof(sUniformData) * instances, WGPUBufferUsage_CopyDst | WGPUBufferUsage_Storage, instance_data_without_id.data(), "instance_mesh_buffer");
-            instances_data.instances_data_uniforms[i].binding = 0;
+            instances_data.instances_data_uniforms[i].data = webgpu_context->create_buffer(sizeof(sUniformData) * instances, WGPUBufferUsage_CopyDst | WGPUBufferUsage_Storage, instances_data.instances_data[i].data(), "instance_mesh_buffer");
+			instances_data.instances_data_uniforms[i].binding = 0;
             instances_data.instances_data_uniforms[i].buffer_size = sizeof(sUniformData) * instances;
 
             // Recreate bind groups
@@ -2082,13 +2086,13 @@ void Renderer::prepare_cull_instancing(const Camera& camera, std::vector<std::ve
 
                 j += render_data.repeat;
             }
-
         }
         else
             if (instances > 0) {
-			    webgpu_context->update_buffer(std::get<WGPUBuffer>(instances_data.instances_data_uniforms[i].data), 0, instance_data_without_id.data(), sizeof(sUniformData) * instances);
-            }
+			webgpu_context->update_buffer(std::get<WGPUBuffer>(instances_data.instances_data_uniforms[i].data), 0, instances_data.instances_data[i].data(), sizeof(sUniformData) * instances);
+		}
     }
+
 }
 
 void Renderer::render_shadow_maps()
@@ -2310,14 +2314,22 @@ uint8_t Renderer::timestamp(WGPUCommandEncoder encoder, const char* label)
     return query_index++;
 }
 
-void Renderer::add_renderable(Mesh* mesh, const glm::mat4x4& global_matrix)
-{
-    if ((render_entity_list.size() + 1) >= current_render_list_size) {
-        current_render_list_size <<= 1;
-        render_entity_list.reserve(current_render_list_size);
-    }
+/* void Renderer::add_renderable(Mesh *mesh, const glm::mat4x4 &global_matrix) {
+	if ((render_entity_list.size() + 1) >= current_render_list_size) {
+		current_render_list_size <<= 1;
+		render_entity_list.reserve(current_render_list_size);
+	}
 
-    render_entity_list.push_back({ mesh, global_matrix });
+	render_entity_list.push_back({ mesh, global_matrix });
+}*/
+
+void Renderer::add_renderable(Mesh *mesh, const glm::mat4x4 &global_matrix, const std::string id) {
+	if ((render_entity_list.size() + 1) >= current_render_list_size) {
+		current_render_list_size <<= 1;
+		render_entity_list.reserve(current_render_list_size);
+	}
+
+	render_entity_list.push_back({ mesh, global_matrix, id});
 }
 
 void Renderer::add_splat_scene(GSNode* gs_scene)

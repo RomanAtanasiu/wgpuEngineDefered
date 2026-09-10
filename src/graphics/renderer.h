@@ -204,6 +204,7 @@ protected:
     struct sRenderListData {
         Mesh* mesh;
         glm::mat4x4 global_matrix;
+		std::string id;
     };
 
     struct sRenderData {
@@ -212,6 +213,7 @@ protected:
         glm::mat4x4 global_matrix;
         Mesh* mesh_ref;
         Material* material;
+		std::string id;
     };
 
     enum eRenderListType {
@@ -223,14 +225,10 @@ protected:
         RENDER_LIST_COUNT
     };
 
-    struct sIdUniformData {
-		glm::mat4x4 model;
-		glm::mat4x4 prev_global_matrix;
-		uint32_t id;
-    };
+
 
     struct sInstanceData {
-		std::vector<sIdUniformData> instances_data[RENDER_LIST_COUNT];
+		std::vector<sUniformData> instances_data[RENDER_LIST_COUNT];
         Uniform	instances_data_uniforms[RENDER_LIST_COUNT];
         WGPUBindGroup instances_bind_groups[RENDER_LIST_COUNT] = {};
 		uint32_t max_id_opaque = 0;
@@ -305,6 +303,9 @@ protected:
 
     // Entities to be rendered this frame
     std::vector<sRenderListData> render_entity_list;
+	std::vector<sRenderListData> prev_render_entity_list;
+	//std::unordered_map<std::string, glm::mat4x4> prev_render_entity_list;
+
     uint32_t current_render_list_size = 32;
 
     // Gaussian Splatting scenes to render
@@ -502,7 +503,7 @@ public:
     void set_required_features(std::vector<WGPUFeatureName> new_required_features) { required_features = new_required_features; };
     void set_required_limits(const WGPULimits& required_limits) { webgpu_context->required_limits = required_limits; }
 
-    void add_renderable(Mesh* mesh_instance, const glm::mat4x4& global_matrix);
+    void add_renderable(Mesh *mesh_instance, const glm::mat4x4 &global_matrix, const std::string id = "");
     void add_splat_scene(GSNode* gs_scene);
     void clear_renderables();
 

@@ -37,7 +37,7 @@ void MeshInstance3D::update_aabb()
 void MeshInstance3D::render()
 {
     if (mesh) {
-        Renderer::instance->add_renderable(mesh, get_global_transform().get_model());
+        Renderer::instance->add_renderable(mesh, get_global_transform().get_model(), name);
     }
 
     Node3D::render();
