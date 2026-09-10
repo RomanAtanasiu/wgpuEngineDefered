@@ -527,7 +527,6 @@ void Renderer::render()
 
         resolve_gbuffers(light_buffer_data.texture_view, eye_depth_textures[EYE_LEFT].get_texture(), eye_depth_texture_view[EYE_LEFT], render_instances_data, gbuffers_light_pass_camera_bind_group, true, "deferred_light_pass");
 
-        render_camera_transparents(render_lists, light_buffer_data.texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "deferred_transparecy_pass");
 
         //to do, copy light buffer to bufferA
 		webgpu_context->copy_texture_to_texture(light_buffer_data.texture->get_texture(), BufferA.texture->get_texture(), 0, 0, light_buffer_data.texture->get_size(), { 0, 0, 0 }, { 0, 0, 0 }, global_command_encoder);
@@ -536,12 +535,19 @@ void Renderer::render()
 
         post_process_copy_post_process_to_texture(temporal_AA_data.accumulation_texture, temporal_AA_data.id);
 
-		render_post_processing_passes(BEFORE_TAA);
+		render_post_processing_passes(BEFORE_TRANSPARENTS_AND_TAA);
 
         render_post_processing_passes(TAA);
 		webgpu_context->copy_texture_to_texture(gbuffer_data.textures[1].get_texture(), temporal_AA_data.prev_velocity_texture->get_texture(), 0, 0, light_buffer_data.texture->get_size(), { 0, 0, 0 }, { 0, 0, 0 }, global_command_encoder);
 
-        render_post_processing_passes(AFTER_TAA);
+        render_post_processing_passes(BEFORE_TRANSPARENTS_AFTER_TAA);
+
+        sBufferPostProcess buffer_dst = post_processing_bool ? BufferA : BufferB;
+        
+        render_camera_transparents(render_lists, buffer_dst.texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "deferred_transparecy_pass");
+
+
+        render_post_processing_passes(AFTER_TRANSPARENTS);
 		render_gamma_correction(screen_surface_texture_view, "gamma correction pass");
         //render_camera(render_lists, screen_surface_texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "forward_render");
     }

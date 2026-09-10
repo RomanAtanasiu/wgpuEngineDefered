@@ -37,8 +37,10 @@ struct sLightUniformData;
 
 typedef uint8_t tPostProcess;
 typedef enum {
-	BEFORE_TAA,
-	AFTER_TAA,
+    BEFORE_TRANSPARENTS_AND_TAA,
+
+    BEFORE_TRANSPARENTS_AFTER_TAA,
+	AFTER_TRANSPARENTS,
 
     TAA
 } ePostProcessPositionRender;
