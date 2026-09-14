@@ -550,8 +550,8 @@ public:
     */
     void post_process_copy_post_process_to_texture(Texture* dst, tPostProcess id);
 
-
-
+    tPostProcess post_process_get_TAA_id() { return temporal_AA_data.id; }
+    
     std::vector<tPostProcess> post_process_get_ids_in_render_order(ePostProcessPositionRender position);
     //end post processing API
 

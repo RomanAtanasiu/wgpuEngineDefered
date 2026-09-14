@@ -53,7 +53,7 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
         for(var y = -1; y <= 1; y += 1)
         {
             //sample neighbor pixels for min/max clamping
-            var color = textureLoad(in_texture, prevPixel + vec2<i32>(x, y), 0); // Sample neighbor
+            var color = textureLoad(in_texture, pixel + vec2<i32>(x, y), 0); // Sample neighbor
             minColor = min(minColor, color.rgb); // Take min and max
             maxColor = max(maxColor, color.rgb); 
 

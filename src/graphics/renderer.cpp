@@ -538,7 +538,6 @@ void Renderer::render()
 		render_post_processing_passes(BEFORE_TRANSPARENTS_AND_TAA);
 
         render_post_processing_passes(TAA);
-		webgpu_context->copy_texture_to_texture(gbuffer_data.textures[1].get_texture(), temporal_AA_data.prev_velocity_texture->get_texture(), 0, 0, light_buffer_data.texture->get_size(), { 0, 0, 0 }, { 0, 0, 0 }, global_command_encoder);
 
         render_post_processing_passes(BEFORE_TRANSPARENTS_AFTER_TAA);
 
@@ -1039,7 +1038,7 @@ void Renderer::render_post_processing(Pipeline *pipeline, std::vector<WGPUBindGr
 	render_attachment.loadOp = WGPULoadOp_Clear;
 	render_attachment.storeOp = WGPUStoreOp_Store;
 	render_attachment.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
-	render_attachment.clearValue = WGPUColor{ 0, 0, 0, clear_color.a };
+	render_attachment.clearValue = WGPUColor{ 0, 0, 0, 0 };
 
 	WGPURenderPassDescriptor render_pass_descr = {};
 	render_pass_descr.colorAttachmentCount = 1u;
