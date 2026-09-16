@@ -13,8 +13,8 @@ struct sEngineConfiguration {
     uint16_t window_height = 900;
     std::string window_title = "wgpuEngine";
     eCameraType camera_type = CAMERA_FLYOVER;
-	glm::vec3 camera_eye = { 0.608711f, 0.749335f, 2.64692f };
-	glm::vec3 camera_center = { 1.15929f, 0.827252f, 1.81575f };
+	glm::vec3 camera_eye = { 0.0f, 0.75f, 2.0f };
+	glm::vec3 camera_center = { 0.0f, 0.75f, 0.0f };
     uint8_t msaa_count = 1;
     bool fullscreen = false;
 };

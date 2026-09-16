@@ -601,12 +601,13 @@ void Renderer::render()
 
         ImGui::Checkbox("start capture frames", &start);
 
-        if (current_frame < 20 && start) {
+        if (current_frame < 40) {
             //store_texture_to_disk(global_command_encoder, temporal_AA_data.accumulation_texture->get_texture(), { webgpu_context->screen_width, webgpu_context->screen_height, 1 }, ("result_with_taa" + std::to_string(current_frame) + ".ppm").c_str(), false);
 
             store_texture_to_disk(global_command_encoder, screen_surface_texture.texture, { webgpu_context->screen_width, webgpu_context->screen_height, 1 }, ("result_with_taa" + std::to_string(current_frame) + ".ppm").c_str(), false);
-            current_frame++;
+            
         }
+		current_frame++;
         //render_camera(render_lists, screen_surface_texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "forward_render");
     }
 #ifdef XR_SUPPORT
