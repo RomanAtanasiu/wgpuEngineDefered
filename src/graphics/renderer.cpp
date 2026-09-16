@@ -477,6 +477,56 @@ void Renderer::render()
         screen_surface_texture_view = webgpu_context->create_texture_view(screen_surface_texture.texture, WGPUTextureViewDimension_2D, webgpu_context->swapchain_format);
     }
 
+    // Store the GPU buffers to CPU
+	while (textures_to_store_list.size() > 0u) {
+		sTextureToStoreCmd *to_store = new sTextureToStoreCmd();
+		*to_store = textures_to_store_list.back();
+		textures_to_store_list.pop_back();
+
+		webgpu_context->read_buffer_async(to_store->src_buffer, to_store->copy_size * sizeof(uint8_t), [&](const void *output_buffer, void *user_data) {
+                sTextureToStoreCmd* copy_data = (sTextureToStoreCmd*) user_data;
+                char *raw_buffer = new char[copy_data->copy_size];
+                memcpy(raw_buffer, output_buffer, copy_data->copy_size * sizeof(char));
+                wgpuBufferDestroy(copy_data->src_buffer);
+
+                fprintf(copy_data->dst_file, "P3\n%d %d\n255\n", copy_data->size.width, copy_data->size.height);
+
+
+                if (copy_data->is_depth) {
+                    for (uint32_t i = 0u; i < copy_data->size.height; i++) {
+                        for (uint32_t j = 0u; j < copy_data->size.width; j++) {
+                            const uint32_t idx = (j + copy_data->size.width * i);
+
+                            char depth = raw_buffer[idx];
+                            fprintf(copy_data->dst_file,
+                                "%hhu %hhu %hhu\n",
+                                depth, depth, depth
+                            );
+                        }
+                    }
+                } else {
+                    for (uint32_t i = 0u; i < copy_data->size.height; i++) {
+                        for (uint32_t j = 0u; j < copy_data->size.width; j++) {
+                            const uint32_t idx = (j + copy_data->size.width * i) * 4u;
+
+                            fprintf(copy_data->dst_file,
+								"%hhu %hhu %hhu\n",
+								(raw_buffer[idx + 2u]),
+								(raw_buffer[idx + 1u]),
+								(raw_buffer[idx])
+                            );
+                        }
+                    }
+                }
+                
+
+                fclose(copy_data->dst_file);
+
+                delete[] raw_buffer;
+                delete copy_data; }, to_store);
+	}
+
+
     update_lights();
 
     //render_shadow_maps();
@@ -548,6 +598,15 @@ void Renderer::render()
 
         render_post_processing_passes(AFTER_TRANSPARENTS);
 		render_gamma_correction(screen_surface_texture_view, "gamma correction pass");
+
+        ImGui::Checkbox("start capture frames", &start);
+
+        if (current_frame < 20 && start) {
+            //store_texture_to_disk(global_command_encoder, temporal_AA_data.accumulation_texture->get_texture(), { webgpu_context->screen_width, webgpu_context->screen_height, 1 }, ("result_with_taa" + std::to_string(current_frame) + ".ppm").c_str(), false);
+
+            store_texture_to_disk(global_command_encoder, screen_surface_texture.texture, { webgpu_context->screen_width, webgpu_context->screen_height, 1 }, ("result_with_taa" + std::to_string(current_frame) + ".ppm").c_str(), false);
+            current_frame++;
+        }
         //render_camera(render_lists, screen_surface_texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "forward_render");
     }
 #ifdef XR_SUPPORT
@@ -2698,6 +2757,42 @@ glm::vec3 Renderer::get_camera_front()
 
     Camera* camera = get_camera();
     return glm::normalize(camera->get_center() - camera->get_eye());
+}
+
+void Renderer::store_texture_to_disk(WGPUCommandEncoder cmd_encoder, const WGPUTexture gpu_texture, const WGPUExtent3D in_size, const char *file_dir, const bool is_depth) {
+	assert(in_size.depthOrArrayLayers == 1 && "Only supports for 2D textures");
+
+	size_t buffer_size = in_size.width * in_size.height;
+
+	if (!is_depth) {
+		buffer_size *= 4;
+	}
+
+	WGPUBuffer gpu_texture_data_upload = webgpu_context->create_buffer(buffer_size * sizeof(uint8_t), WGPUBufferUsage_CopyDst | WGPUBufferUsage_CopySrc, nullptr, "buff_to_upload_tex");
+
+	WGPUTexelCopyBufferInfo buffer_copy = {
+		.layout = {
+				.offset = 0u,
+				.bytesPerRow = (is_depth) ? (in_size.width * sizeof(uint8_t)) : (in_size.width * sizeof(uint8_t) * 4),
+				.rowsPerImage = in_size.height },
+		.buffer = gpu_texture_data_upload
+	};
+
+	WGPUTexelCopyTextureInfo texel_copy = {
+		.texture = gpu_texture,
+		.mipLevel = 0u,
+		.origin = { 0u, 0u, 0u },
+		.aspect = WGPUTextureAspect_All
+	};
+
+	wgpuCommandEncoderCopyTextureToBuffer(cmd_encoder, &texel_copy, &buffer_copy, &in_size);
+
+	// Store it, for retreaving in the next frame
+	textures_to_store_list.push_back({ .dst_file = fopen(file_dir, "w"),
+			.src_buffer = gpu_texture_data_upload,
+			.copy_size = buffer_size,
+			.size = in_size,
+			.is_depth = is_depth });
 }
 
 
