@@ -273,7 +273,8 @@ int WebGPUContext::initialize(bool create_screen_swapchain)
         // Create the swapchain for mirror mode
         int width, height;
         glfwGetWindowSize(window, &width, &height);
-
+		width = 1920u * 2;
+		height = 1080u * 2;
         create_swapchain(width, height);
     }
 
@@ -1524,7 +1525,7 @@ void WebGPUContext::create_swapchain(int width, int height)
     surface_config.usage = WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding;
     surface_config.presentMode = WGPUPresentMode_Fifo;
 #else
-    surface_config.usage = WGPUTextureUsage_RenderAttachment;
+	surface_config.usage = WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_CopySrc;
     surface_config.presentMode = (support_mailbox_present) ? WGPUPresentMode_Mailbox : WGPUPresentMode_Fifo;
 #endif
     surface_config.format = swapchain_format;

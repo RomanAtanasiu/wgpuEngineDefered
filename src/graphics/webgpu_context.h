@@ -86,8 +86,8 @@ struct WebGPUContext {
     struct sGbufferFormat {
         const uint32_t GBUFFER_COUNT = 2u;
         const WGPUTextureFormat GBUFFER_FORMAT = WGPUTextureFormat_RGBA32Float;
-        uint32_t width = 1920u; // NOTE: SET ON RUNTIME
-        uint32_t height = 1080u;
+        uint32_t width = 1920u * (2); // NOTE: SET ON RUNTIME
+        uint32_t height = 1080u * (2);
     } gbuffer_format;
 
     const WGPUTextureFormat light_buffer_format = WGPUTextureFormat_RGBA16Float;

@@ -57,6 +57,9 @@ struct sRendererConfiguration {
         required_limits.maxSamplersPerShaderStage = 1;
         required_limits.maxDynamicUniformBuffersPerPipelineLayout = 1;
 
+        //only for getting results
+		required_limits.maxTextureDimension2D = 10240;
+
 #if !defined(__EMSCRIPTEN__)
         features.push_back(WGPUFeatureName_TimestampQuery);
 #endif
@@ -329,6 +332,17 @@ protected:
     std::vector<WGPUFeatureName> required_features = { };
 
     uint32_t frame_counter = 0;
+	struct sTextureToStoreCmd {
+		FILE *dst_file;
+		WGPUBuffer src_buffer;
+		size_t copy_size;
+		WGPUExtent3D size;
+		bool is_depth;
+	};
+
+	std::vector<sTextureToStoreCmd> textures_to_store_list;
+
+	void store_texture_to_disk(WGPUCommandEncoder cmd_encoder, const WGPUTexture gpu_texture, const WGPUExtent3D in_size, const char *file_dir, const bool is_depth);
 
 public:
 
@@ -506,5 +520,5 @@ public:
     std::vector<tPostProcess> post_process_get_ids_in_render_order(ePostProcessPositionRender position);
     //end post processing API
 
-
+    int current_frame = 1;
 };
