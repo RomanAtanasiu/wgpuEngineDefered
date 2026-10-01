@@ -521,4 +521,6 @@ public:
     //end post processing API
 
     int current_frame = 1;
+
+    bool start = false;
 };

@@ -537,11 +537,15 @@ void Renderer::render()
         render_post_processing_passes(BEFORE_GAMMA_PASS);
 		render_gamma_correction(screen_surface_texture_view, "gamma correction pass");
         //render_camera(render_lists, screen_surface_texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "forward_render");
-
-        if (current_frame < 40) {
+		//ImGui::Checkbox("start capture frames", &start);
+		if (glfwGetKey(webgpu_context->window, GLFW_KEY_SPACE) == GLFW_PRESS && !start) 
+			start = true;
+        
+		if (current_frame < 40 && start){
 			//store_texture_to_disk(global_command_encoder, temporal_AA_data.accumulation_texture->get_texture(), { webgpu_context->screen_width, webgpu_context->screen_height, 1 }, ("result_with_taa" + std::to_string(current_frame) + ".ppm").c_str(), false);
 
 			store_texture_to_disk(global_command_encoder, screen_surface_texture.texture, { webgpu_context->screen_width, webgpu_context->screen_height, 1 }, ("result_with_taa" + std::to_string(current_frame) + ".ppm").c_str(), false);
+			current_frame++;
 
 		}
     }
@@ -657,7 +661,6 @@ void Renderer::render()
             custom_post_2d_pass(render_pass, render_camera_bind_group_2d, custom_pass_user_data, 0);
         }
 
-        current_frame++;
 
         wgpuRenderPassEncoderEnd(render_pass);
         wgpuRenderPassEncoderRelease(render_pass);
