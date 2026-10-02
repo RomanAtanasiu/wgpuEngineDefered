@@ -572,7 +572,7 @@ void Renderer::render()
         
         temporal_AA_data.current_sample = (temporal_AA_data.current_sample +1) % temporal_AA_data.num_samples;
 
-
+        webgpu_context->copy_texture_to_texture(gbuffer_data.textures[1].get_texture(), temporal_AA_data.prev_velocity_texture->get_texture(), 0, 0, temporal_AA_data.prev_velocity_texture->get_size(), { 0, 0, 0 }, { 0, 0, 0 }, global_command_encoder);
         render_camera_in_gbuffers(render_lists, screen_surface_texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "deferred_render_pass");
 
         resolve_gbuffers(light_buffer_data.texture_view, eye_depth_textures[EYE_LEFT].get_texture(), eye_depth_texture_view[EYE_LEFT], render_instances_data, gbuffers_light_pass_camera_bind_group, true, "deferred_light_pass");
@@ -597,17 +597,19 @@ void Renderer::render()
 
 
         render_post_processing_passes(AFTER_TRANSPARENTS);
+
+
 		render_gamma_correction(screen_surface_texture_view, "gamma correction pass");
 
         ImGui::Checkbox("start capture frames", &start);
 
-        if (current_frame < 40) {
+        if (current_frame < 40 && start) {
             //store_texture_to_disk(global_command_encoder, temporal_AA_data.accumulation_texture->get_texture(), { webgpu_context->screen_width, webgpu_context->screen_height, 1 }, ("result_with_taa" + std::to_string(current_frame) + ".ppm").c_str(), false);
 
             store_texture_to_disk(global_command_encoder, screen_surface_texture.texture, { webgpu_context->screen_width, webgpu_context->screen_height, 1 }, ("result_with_taa" + std::to_string(current_frame) + ".ppm").c_str(), false);
-            
+			current_frame++;
         }
-		current_frame++;
+//		current_frame++;
         //render_camera(render_lists, screen_surface_texture_view, eye_depth_texture_view[EYE_LEFT], render_instances_data, render_camera_bind_group, true, "forward_render");
     }
 #ifdef XR_SUPPORT

@@ -281,9 +281,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_facing: bool) -> Fr
     out.gbuffer_normal_velocity = vec4f(normal_encoded.x, normal_encoded.y, velocity.x, velocity.y);
 
 
-    if(all(in.prev_world_position == vec3f(0.0)) && all(in.prev_world_position != vec3f(0.0))){
-            out.gbuffer_normal_velocity = vec4f(1.0, 0.0, 0.0, 0.0);
-    }
+
     // m.roughness = max(m.roughness, 0.04);
     // m.diffuse = mix(m.albedo, vec3f(0.0), m.metallic);
     // m.f0 = mix(vec3f(0.04), m.albedo, m.metallic);

@@ -70,9 +70,9 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
 
     let accumulation = mix(previousColorClamped, color_current.rgb, 0.1);
 
-    out.color = vec4f(accumulation*(1.0 - velocityDisocclusion) + blur_color * velocityDisocclusion, 1.0);
+    //out.color = vec4f(accumulation*(1.0 - velocityDisocclusion) + blur_color * velocityDisocclusion, 1.0);
 
-    //out.color = vec4f(accumulation, 1.0);
+    out.color = vec4f(accumulation, 1.0);
 
     return out;
 }
