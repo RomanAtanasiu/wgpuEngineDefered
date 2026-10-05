@@ -795,7 +795,7 @@ void Renderer::render()
         timestamps_requested = false;
     }
 #endif
-	prev_render_entity_list = render_entity_list;
+
 
     clear_renderables();
 }
@@ -2091,7 +2091,7 @@ void Renderer::prepare_cull_instancing(const Camera& camera, std::vector<std::ve
 				instances_data.instances_data[i][j] = { render_data.global_matrix, render_data.global_matrix};
                 //check if needed prev_global_matrix for motion vectors for opaques
 				if (i == RENDER_LIST_OPAQUE) {
-					bool was_in_previous_frame = false;
+					/* bool was_in_previous_frame = false;
 					glm::mat4x4 prev_mat;
 					for (auto prev_entity : prev_render_entity_list) {
 						if (prev_entity.id == render_data.id) {
@@ -2103,7 +2103,18 @@ void Renderer::prepare_cull_instancing(const Camera& camera, std::vector<std::ve
 
                     if (was_in_previous_frame) {
 						instances_data.instances_data[i][j] = { render_data.global_matrix, prev_mat };
-					} 
+					}*/
+					auto pair_of_prev_list = prev_render_entity_list.find(render_data.id);
+
+                    if (pair_of_prev_list != prev_render_entity_list.end()) {
+                        
+                        instances_data.instances_data[i][j].prev_global_matrix = pair_of_prev_list->second;
+						pair_of_prev_list->second = render_data.global_matrix;
+					} else {
+						prev_render_entity_list.emplace(render_data.id,render_data.global_matrix);
+
+                    }
+
 				} 
                    
                 

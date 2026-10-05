@@ -305,8 +305,8 @@ protected:
 
     // Entities to be rendered this frame
     std::vector<sRenderListData> render_entity_list;
-	std::vector<sRenderListData> prev_render_entity_list;
-	//std::unordered_map<std::string, glm::mat4x4> prev_render_entity_list;
+	//std::vector<sRenderListData> prev_render_entity_list;
+	std::unordered_map<std::string, glm::mat4x4> prev_render_entity_list = {};
 
     uint32_t current_render_list_size = 32;
 
