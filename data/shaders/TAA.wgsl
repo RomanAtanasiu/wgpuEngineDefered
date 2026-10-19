@@ -4,7 +4,8 @@
 @group(1) @binding(0) var accumulation_buffer: texture_2d<f32>;
 @group(1) @binding(1) var gbuffer_normal_velocity: texture_2d<f32>;
 @group(1) @binding(2) var prev_velocity_buffer: texture_2d<f32>;
-
+//@group(2) @binding(0) var bilinear_sampler: sampler;
+@group(1) @binding(3) var bilinear_sampler: sampler;
 
 
 struct DefferedVertexOut {
@@ -38,7 +39,9 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
     let previousColor = textureLoad(accumulation_buffer, prevPixel, 0);
 
 //velocity rejection
-    let prev_velocityUV = textureLoad(prev_velocity_buffer, prevPixel, 0).ba;
+    let prev_velocityUV = textureSample(prev_velocity_buffer, bilinear_sampler, in.uv).ba;// textureLoad(prev_velocity_buffer, prevPixel, 0).ba;
+    //let prev_velocityUV = textureLoad(prev_velocity_buffer, prevPixel, 0).ba;
+
     let velocityLength = length(prev_velocityUV - velocityUV);
     let velocityDisocclusion = saturate((velocityLength - 0.001) * 10.0);
 
@@ -59,6 +62,7 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
 
             //average neighbor pixels for velocity rejection
             var actual_color = textureLoad(in_texture, pixel + vec2<i32>(x, y), 0); 
+           //var actual_color = textureSample(in_texture, bilinear_sampler, in.uv);
             blur_color += actual_color.rgb;  
         }
     }
@@ -70,9 +74,9 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
 
     let accumulation = mix(previousColorClamped, color_current.rgb, 0.1);
 
-    //out.color = vec4f(accumulation*(1.0 - velocityDisocclusion) + blur_color * velocityDisocclusion, 1.0);
+    out.color = vec4f(accumulation*(1.0 - velocityDisocclusion) + blur_color * velocityDisocclusion, 1.0);
 
-    out.color = vec4f(accumulation, 1.0);
+    //out.color = vec4f(accumulation, 1.0);
 
     return out;
 }

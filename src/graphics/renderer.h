@@ -274,14 +274,22 @@ protected:
         glm::vec2 samples[9];
 		int current_sample = 0;
 		int num_samples = 9;
+
+        
+
 		Texture* accumulation_texture = nullptr;
 		WGPUTextureView accumulation_texture_view = nullptr;
+
 
         Texture* prev_velocity_texture = nullptr;
 		WGPUTextureView prev_velocity_texture_view = nullptr; 
 
+
         Shader* TAA_shader = nullptr;
 		WGPUBindGroup textures_bindgroup = nullptr;
+
+        WGPUBindGroup sampler_bingroup = nullptr;
+		WGPUSampler sampler = nullptr;
 
         tPostProcess id;
 

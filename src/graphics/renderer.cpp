@@ -240,7 +240,7 @@ int Renderer::post_initialize() {
 	}
 
     init_taa_bindgroups();
-	std::vector<WGPUBindGroup> TAA_bindgroups = { temporal_AA_data.textures_bindgroup };
+	std::vector<WGPUBindGroup> TAA_bindgroups = { temporal_AA_data.textures_bindgroup }; //, temporal_AA_data.sampler_bingroup};
     temporal_AA_data.id = post_process_add_render_pass(temporal_AA_data.TAA_shader, TAA,TAA_bindgroups);
 
 
@@ -346,7 +346,7 @@ void Renderer::clean()
 	wgpuBindGroupRelease(post_process_a_to_gamma_bindgroup);
 	wgpuBindGroupRelease(post_process_b_to_gamma_bindgroup);
 	wgpuBindGroupRelease(temporal_AA_data.textures_bindgroup);
-
+	wgpuBindGroupRelease(temporal_AA_data.sampler_bingroup);
     camera_uniform.destroy();
     camera_2d_uniform.destroy();
     shadow_camera_uniform.destroy();
@@ -1734,7 +1734,7 @@ void Renderer::init_timestamp_queries()
 void Renderer::init_post_process_bindgroups() {
 
     	{ //fragment shader bindgroups
-		Shader *post_process_shader = RendererStorage::get_shader_from_source(shaders::black_and_white::source, shaders::black_and_white::path, shaders::black_and_white::libraries);
+		Shader *post_process_shader = RendererStorage::get_shader_from_source(shaders::TAA::source, shaders::TAA::path, shaders::TAA::libraries);
 		std::vector<Uniform *> uniforms;
 		Uniform texture_uniformA;
 		texture_uniformA.data = BufferA.texture_view;
@@ -1793,6 +1793,7 @@ void Renderer::init_taa_textures() {
 	init_accumulation_texture();
 	init_prev_velocity_buffer_texture();
 
+    temporal_AA_data.sampler = webgpu_context->create_sampler();
 }
 
 void Renderer::init_prev_velocity_buffer_texture() {
@@ -1816,6 +1817,8 @@ void Renderer::init_accumulation_texture() {
 			1u, 1u, nullptr
     );
 	temporal_AA_data.accumulation_texture_view = temporal_AA_data.accumulation_texture->get_view();
+
+
 }
 
 void Renderer::init_taa_bindgroups() {
@@ -1825,6 +1828,8 @@ void Renderer::init_taa_bindgroups() {
 	Uniform uniform_accumulation;
 	uniform_accumulation.data = temporal_AA_data.accumulation_texture_view;
 	uniform_accumulation.binding = 0;
+
+
 	uniforms.push_back(&uniform_accumulation);
 
 
@@ -1838,7 +1843,25 @@ void Renderer::init_taa_bindgroups() {
 	uniform_prev_velocity_vectors.binding = 2;
 	uniforms.push_back(&uniform_prev_velocity_vectors);
 
+    Uniform sampler_uniform;
+	sampler_uniform.data = temporal_AA_data.sampler;
+	sampler_uniform.binding = 3;
+	uniforms.push_back(&sampler_uniform);
+
+
     temporal_AA_data.textures_bindgroup = webgpu_context->create_bind_group(uniforms, temporal_AA_data.TAA_shader, 1);
+
+
+    /*
+    //sampler uniform
+	std::vector<Uniform *> uniforms_sampler = {};
+	Uniform sampler_uniform;
+	sampler_uniform.data = temporal_AA_data.sampler;
+	sampler_uniform.binding = 0;
+	uniforms_sampler.push_back(&sampler_uniform);
+
+    temporal_AA_data.sampler_bingroup = webgpu_context->create_bind_group(uniforms_sampler, temporal_AA_data.TAA_shader, 2);
+    */
 }
 
 void Renderer::resolve_query_set(WGPUCommandEncoder encoder, uint8_t first_query)
@@ -1869,7 +1892,7 @@ void Renderer::get_timestamps()
 				time_diffs_equal_O = true;
         }
 		//if ((time_diffs_equal_O))
-		    save_time_diffs_to_csv("time_diffs_deferred.csv", time_diffs);
+		    //save_time_diffs_to_csv("time_diffs_deferred.csv", time_diffs);
 
         delete query_index_cpy;
         };
