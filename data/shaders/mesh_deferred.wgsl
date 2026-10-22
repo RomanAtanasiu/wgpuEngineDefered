@@ -264,16 +264,15 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_facing: bool) -> Fr
     let prev_obj_clip_uv = camera_data.prev_view_projection * vec4f(in.prev_world_position, 1.0);
     let prev_obj_uv = clip_to_uv(prev_obj_clip_uv);
 
+    var jitter_uv = camera_data.jitter;//*0.5;
+    jitter_uv = vec2f(camera_data.jitter.x,-camera_data.jitter.y)*0.5;
+    var prev_jitter_uv = camera_data.prev_jitter;//*0.5;
+    prev_jitter_uv = vec2f(camera_data.prev_jitter.x, -camera_data.prev_jitter.y) * 0.5;
 
 
-    var velocity = vec2f(actual_uv - prev_obj_uv);
-   // let velocity = vec2f(actual_ndc.xy - prev_ndc.xy);
- //   let jitter = camera_data.jitter;// * vec2f(1.0 / (2.0*camera_data.screen_size.x), 1.0 / (2.0*camera_data.screen_size.y));
-   // velocity = velocity - jitter;
-
-
-    //velocity = velocity * 1000.0;
-    //velocity = velocity + camera_data.prev_jitter;//* vec2f(1.0 / (2.0*camera_data.screen_size.x), 1.0 / (2.0*camera_data.screen_size.y));
+    var velocity = vec2f((actual_uv+ jitter_uv) - (prev_obj_uv+prev_jitter_uv));
+    //var velocity = vec2f(actual_uv - prev_obj_uv);
+    
     let metallic_roughness = f32(pack2x16float(vec2f(m.metallic,m.roughness)));
     out.gbuffer_albedo_metallic_roughness = vec4f(albedo_color.x, albedo_color.y, albedo_color.z, metallic_roughness);
     

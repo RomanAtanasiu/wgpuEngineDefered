@@ -30,13 +30,16 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
     var out: FragmentOutput;
     let screen_dims = textureDimensions(in_texture);
     let pixel = vec2<i32>(in.uv * vec2<f32>(screen_dims));
-    let color_current = textureLoad(in_texture, pixel, 0);
+    //let color_current = textureLoad(in_texture, pixel, 0);
+    let color_current = textureSample(in_texture, bilinear_sampler, in.uv);
 
 //reprojection
-    let velocityUV = textureLoad(gbuffer_normal_velocity, pixel, 0).ba;
+    //let velocityUV = textureLoad(gbuffer_normal_velocity, pixel, 0).ba;
+    let velocityUV = textureSample(gbuffer_normal_velocity, bilinear_sampler, in.uv).ba;
     let prevUV = in.uv - velocityUV;
     let prevPixel = vec2<i32>(prevUV * vec2<f32>(screen_dims));
-    let previousColor = textureLoad(accumulation_buffer, prevPixel, 0);
+    //let previousColor = textureLoad(accumulation_buffer, prevPixel, 0);
+    let previousColor = textureSample(accumulation_buffer, bilinear_sampler, prevUV);
 
 //velocity rejection
     let prev_velocityUV = textureSample(prev_velocity_buffer, bilinear_sampler, in.uv).ba;// textureLoad(prev_velocity_buffer, prevPixel, 0).ba;
@@ -57,6 +60,7 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
         {
             //sample neighbor pixels for min/max clamping
             var color = textureLoad(in_texture, pixel + vec2<i32>(x, y), 0); // Sample neighbor
+            //var color = textureSample(in_texture, pixel + vec2<i32>(x, y), 0);
             minColor = min(minColor, color.rgb); // Take min and max
             maxColor = max(maxColor, color.rgb); 
 
@@ -75,7 +79,6 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
     let accumulation = mix(previousColorClamped, color_current.rgb, 0.1);
 
     out.color = vec4f(accumulation*(1.0 - velocityDisocclusion) + blur_color * velocityDisocclusion, 1.0);
-
     //out.color = vec4f(accumulation, 1.0);
 
     return out;

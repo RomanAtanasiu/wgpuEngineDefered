@@ -128,14 +128,14 @@ glm::mat4x4 Camera::get_view_projection_matrix_jittered(glm::vec2 screen_dimensi
 }
 
 glm::mat4x4 Camera::get_projection_matrix_jittered(glm::vec2 screen_dimensions, glm::vec2 sample) {
-	sample = sample * glm::vec2(2) - glm::vec2(1.0);//from [0,1] to [-1,1]
+	sample = sample * glm::vec2(2.0) - glm::vec2(1.0);//from [0,1] to [-1,1]
 	glm::vec2 max_jitter = { 1.0 / (2.0 * screen_dimensions.x), 1.0 / (2.0 * screen_dimensions.y) };//from [-1,1] to [1/-2 h or w to 1/2 h or w]
 	glm::vec2 jitter = { max_jitter.x * sample.x, max_jitter.y * sample.y };
 
 
 	glm::mat4x4 jitter_matrix = projection;
-	jitter_matrix[2][0] = jitter.x;
-	jitter_matrix[2][1] = jitter.y;
+	jitter_matrix[2][0] += jitter.x;
+	jitter_matrix[2][1] += jitter.y;
 	return jitter_matrix;
 }
 

@@ -557,13 +557,18 @@ void Renderer::render()
 		
 		int actual_sample_jitter = (temporal_AA_data.current_sample) % temporal_AA_data.num_samples;
 
-        float jitter_x = temporal_AA_data.samples[actual_sample_jitter].x * (1.0 / (2.0 * webgpu_context->render_width)); 
-		float jitter_y = temporal_AA_data.samples[actual_sample_jitter].y * (1.0 / (2.0 * webgpu_context->render_height)); 
+        float jitter_x = temporal_AA_data.samples[actual_sample_jitter].x * 2.0f - 1.0f;
+		float jitter_y = temporal_AA_data.samples[actual_sample_jitter].y * 2.0f - 1.0f;
+
+        jitter_x = jitter_x * (1.0 / (2.0 * webgpu_context->render_width));
+		jitter_y = jitter_y * (1.0 / (2.0 * webgpu_context->render_height)); 
         camera_data.jitter = glm::vec2(jitter_x, jitter_y);
 
 
-        jitter_x = temporal_AA_data.samples[prev_sample_jitter].x * (1.0 / (2.0 * webgpu_context->render_width));
-		jitter_y = temporal_AA_data.samples[prev_sample_jitter].y * (1.0 / (2.0 * webgpu_context->render_height)); 
+        jitter_x = temporal_AA_data.samples[prev_sample_jitter].x * 2.0f - 1.0f;
+		jitter_y = temporal_AA_data.samples[prev_sample_jitter].y * 2.0f - 1.0f;
+		jitter_x = jitter_x * (1.0 / (2.0 * webgpu_context->render_width));
+		jitter_y = jitter_y * (1.0 / (2.0 * webgpu_context->render_height)); 
 		camera_data.prev_jitter = glm::vec2(jitter_x, jitter_y);
         wgpuQueueWriteBuffer(webgpu_context->device_queue, std::get<WGPUBuffer>(camera_uniform.data), 0, &camera_data, sizeof(sCameraData));
 
@@ -1759,7 +1764,7 @@ void Renderer::init_timestamp_queries()
 void Renderer::init_post_process_bindgroups() {
 
     	{ //fragment shader bindgroups
-		Shader *post_process_shader = RendererStorage::get_shader_from_source(shaders::black_and_white::source, shaders::black_and_white::path, shaders::black_and_white::libraries);
+		Shader *post_process_shader = RendererStorage::get_shader_from_source(shaders::TAA::source, shaders::TAA::path, shaders::TAA::libraries);
 		std::vector<Uniform *> uniforms;
 		Uniform texture_uniformA;
 		texture_uniformA.data = BufferA.texture_view;
