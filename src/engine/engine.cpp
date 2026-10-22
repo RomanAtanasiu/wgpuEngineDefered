@@ -732,6 +732,33 @@ void Engine::render_default_gui()
 				}
 
             }
+
+
+
+           
+
+            ImGui::Text("TAA Options");
+			static const char *items[] = { "HALTON",
+				"GRID",
+				"CIRCULAR",
+				"CIRCULAR_HELIX",
+				"UNIFORM",
+				"ROTATING_GRID",
+				"ROTATING_CIRCULAR" };
+            int current_type = static_cast<int>(renderer->get_current_sampler_type()); // Use int for ImGui::Combo
+            bool sample_has_changed = ImGui::Combo("TAA", &current_type, items, IM_ARRAYSIZE(items));
+
+
+            int num_samples = renderer->get_num_samples();
+
+
+
+			if (sample_has_changed || ImGui::SliderInt("Num of TAA samples", &num_samples, 1, 32)) {
+				renderer->set_samples_taa_type(num_samples, static_cast<SamplerType>(current_type));
+
+            }
+			
+
 			ImGui::Separator();
 
 

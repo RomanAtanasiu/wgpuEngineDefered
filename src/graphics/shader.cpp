@@ -14,6 +14,7 @@
 #include "framework/utils/utils.h"
 
 #include "spdlog/spdlog.h"
+#include <set>
 
 #include "shaders/math.wgsl.gen.h"
 #include "shaders/tonemappers.wgsl.gen.h"
@@ -545,6 +546,11 @@ void Shader::get_reflection_data(const std::string& shader_content)
 
 		bool has_sampler = false;
 
+        std::set<std::pair<uint32_t, uint32_t>> textures_with_sampler; // (group, binding)
+        for (const auto& use : inspector.GetSamplerTextureUses(entry_point.name)) {
+            textures_with_sampler.insert({ use.texture_binding_point.group, use.texture_binding_point.binding });
+        }
+
         const std::vector<ResourceBinding>& resource_bindings = inspector.GetResourceBindings(entry_point.name);
 		for (const ResourceBinding& resource_binding : resource_bindings) {
 
@@ -624,12 +630,10 @@ void Shader::get_reflection_data(const std::string& shader_content)
                 switch (resource_binding.sampled_kind)
                 {
                 case ResourceBinding::SampledKind::kFloat:
-                    if (has_sampler) {
-                        entry.texture.sampleType = WGPUTextureSampleType_Float;
-                    }
-                    else {
-                        entry.texture.sampleType = WGPUTextureSampleType_UnfilterableFloat;
-                    }
+                    {
+						bool filtered = textures_with_sampler.contains({ resource_binding.bind_group, resource_binding.binding });
+						entry.texture.sampleType = filtered ? WGPUTextureSampleType_Float : WGPUTextureSampleType_UnfilterableFloat;
+					}
                     break;
                 case ResourceBinding::SampledKind::kUInt:
                     entry.texture.sampleType = WGPUTextureSampleType_Uint;

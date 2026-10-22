@@ -23,7 +23,7 @@ public:
     void update_projection_matrix();
     void update_view_projection_matrix();
 
-    //sample is between 1 and -1
+    //sample is between 0 and 1
 	glm::mat4x4 get_view_projection_matrix_jittered(glm::vec2 screen_dimensions, glm::vec2 sample);
 	glm::mat4x4 get_projection_matrix_jittered(glm::vec2 screen_dimensions, glm::vec2 sample);
 

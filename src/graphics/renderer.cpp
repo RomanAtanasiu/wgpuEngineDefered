@@ -24,7 +24,6 @@
 #include "graphics/shader.h"
 #include "graphics/debug/renderdoc_capture.h"
 #include "graphics/renderer_storage.h"
-
 #include "shaders/mesh_forward.wgsl.gen.h"
 #include "shaders/AABB_shader.wgsl.gen.h"
 #include "shaders/mesh_shadow.wgsl.gen.h"
@@ -221,23 +220,7 @@ int Renderer::post_initialize() {
     init_taa_textures();
 
     init_post_process_bindgroups();
-    //Todo: update samples from grid to evenly random samples
-	 int num_samples = temporal_AA_data.num_samples;
-	 int grid_size = (int)(std::ceil(std::sqrt(num_samples)));
 
-	for (int i = 0; i < num_samples; ++i) {
-		 int column = i % grid_size;
-		 int row = i / grid_size;
-
-		 float x = (float)(column + 1) /
-				 (float)(grid_size + 1);
-
-		 float y = (float)(row + 1) /
-				 (float)(grid_size + 1);
-
-		temporal_AA_data.samples[i] =
-				glm::vec2(x, y) * 2.0f - glm::vec2(1.0f);
-	}
 
     init_taa_bindgroups();
 	std::vector<WGPUBindGroup> TAA_bindgroups = { temporal_AA_data.textures_bindgroup }; //, temporal_AA_data.sampler_bingroup};
@@ -346,7 +329,6 @@ void Renderer::clean()
 	wgpuBindGroupRelease(post_process_a_to_gamma_bindgroup);
 	wgpuBindGroupRelease(post_process_b_to_gamma_bindgroup);
 	wgpuBindGroupRelease(temporal_AA_data.textures_bindgroup);
-	wgpuBindGroupRelease(temporal_AA_data.sampler_bingroup);
     camera_uniform.destroy();
     camera_2d_uniform.destroy();
     shadow_camera_uniform.destroy();
@@ -430,6 +412,18 @@ void Renderer::update(float delta_time)
     }
     else {
         camera_3d->update(delta_time);
+    }
+
+    if (temporal_AA_data.samples_type == ROTATING_GRID || temporal_AA_data.samples_type == ROTATING_CIRCULAR) {
+		rotate_samples(temporal_AA_data.samples, (PI / 4) * delta_time); 
+		
+        for (auto sample : temporal_AA_data.samples) {
+			if (sample.x > 1.0 || sample.x < 0.0) {
+				spdlog::warn("Sample out of [0,1] range\n");
+			} else if (sample.y > 1.0 || sample.y < 0.0) {
+				spdlog::warn("Sample out of [0,1] range\n");
+            }
+        }
     }
 }
 
@@ -556,7 +550,11 @@ void Renderer::render()
 		camera_data.inv_view_projection = glm::inverse(camera_3d->get_view_projection());
 		camera_data.inv_view_projection = glm::inverse(camera_data.view_projection);
 
+
+
         int prev_sample_jitter = (temporal_AA_data.current_sample - 1) % temporal_AA_data.num_samples;
+		if (prev_sample_jitter < 0) prev_sample_jitter = temporal_AA_data.num_samples - 1;
+		
 		int actual_sample_jitter = (temporal_AA_data.current_sample) % temporal_AA_data.num_samples;
 
         float jitter_x = temporal_AA_data.samples[actual_sample_jitter].x * (1.0 / (2.0 * webgpu_context->render_width)); 
@@ -1487,6 +1485,33 @@ void Renderer::init_post_processing_textures() {
 
 
 
+
+
+void Renderer::set_samples_taa_type(int num_samples, SamplerType type, float radius) {
+	temporal_AA_data.current_sample = 0;
+	temporal_AA_data.num_samples = num_samples;
+	temporal_AA_data.samples.clear();
+	temporal_AA_data.samples_type = type;
+	if (type == HALTON) {
+		temporal_AA_data.samples = generate_halton_2x3(num_samples);
+	}
+
+	if (type == CIRCULAR || type == ROTATING_CIRCULAR) {
+		temporal_AA_data.samples = generate_circular(num_samples, radius);
+	}
+
+	if (type == CIRCULAR_HELIX) {
+		temporal_AA_data.samples = generate_circular_helix(num_samples, radius);
+	}
+
+	if (type == GRID || type == ROTATING_GRID) {
+		temporal_AA_data.samples = generate_grid(num_samples);
+	}
+
+	if (type == UNIFORM) {
+		temporal_AA_data.samples = generate_unifrom(num_samples);
+	}
+}
 tPostProcess Renderer::post_process_add_compute_pass(Shader *shader, ePostProcessPositionRender position, const std::string &entry_point, int workgroups[3], std::vector<WGPUBindGroup> bindgroups) {
 	post_process_data[num_declared_post_process_passes].shader = shader;
 	std::vector<WGPUConstantEntry> constants;
@@ -1734,7 +1759,7 @@ void Renderer::init_timestamp_queries()
 void Renderer::init_post_process_bindgroups() {
 
     	{ //fragment shader bindgroups
-		Shader *post_process_shader = RendererStorage::get_shader_from_source(shaders::TAA::source, shaders::TAA::path, shaders::TAA::libraries);
+		Shader *post_process_shader = RendererStorage::get_shader_from_source(shaders::black_and_white::source, shaders::black_and_white::path, shaders::black_and_white::libraries);
 		std::vector<Uniform *> uniforms;
 		Uniform texture_uniformA;
 		texture_uniformA.data = BufferA.texture_view;

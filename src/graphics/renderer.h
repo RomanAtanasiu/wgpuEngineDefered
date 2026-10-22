@@ -8,6 +8,8 @@
 #include "graphics/pipeline.h"
 
 #include "framework/camera/camera.h"
+#include "framework/utils/sampler.h"
+
 
 #include "glm/mat4x4.hpp"
 
@@ -35,6 +37,8 @@ struct WebGPUContext;
 struct XRContext;
 struct sLightUniformData;
 
+
+
 typedef uint8_t tPostProcess;
 typedef enum {
     BEFORE_TRANSPARENTS_AND_TAA,
@@ -44,6 +48,9 @@ typedef enum {
 
     TAA
 } ePostProcessPositionRender;
+
+
+
 
 struct sRendererConfiguration {
     WGPULimits required_limits = {};
@@ -270,12 +277,12 @@ protected:
     sCameraData camera_2d_data;
 
     struct sTAAData{
-        //between -1 and 1
-        glm::vec2 samples[9];
+        //between 0 and 1
+       // glm::vec2 samples[9];
+		int num_samples = 16;
+		std::vector<glm::vec2> samples = generate_halton_2x3(num_samples);
 		int current_sample = 0;
-		int num_samples = 9;
-
-        
+        SamplerType samples_type = HALTON;
 
 		Texture* accumulation_texture = nullptr;
 		WGPUTextureView accumulation_texture_view = nullptr;
@@ -551,8 +558,12 @@ public:
 
     int get_num_of_gbuffers() { return webgpu_context->gbuffer_format.GBUFFER_COUNT; }
 
+    //TAA
 
+    SamplerType get_current_sampler_type() {return temporal_AA_data.samples_type; };
+    int get_num_samples() { return temporal_AA_data.num_samples; }
 
+	void set_samples_taa_type(int num_samples, SamplerType type, float radius = 0.3);
     //post processing API
 
 
