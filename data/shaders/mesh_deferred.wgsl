@@ -6,6 +6,10 @@ fn oct_wrap(v: vec2<f32>) -> vec2<f32> {
     return (vec2<f32>(1.0) - abs(vec2<f32>(v.y, v.x))) * sign;
 }
 
+fn unjitter_texture_uv(uv: vec2<f32>, current_jitter: vec2<f32>) -> vec2<f32> {
+    return uv -dpdxFine(uv)*current_jitter.x + dpdyFine(uv)*current_jitter.y;
+}
+
 fn encode(n_in: vec3<f32>) -> vec2<f32> {
     var n = n_in;
     let inv_l1 = 1.0 / (abs(n.x) + abs(n.y) + abs(n.z));
@@ -24,11 +28,17 @@ fn encode(n_in: vec3<f32>) -> vec2<f32> {
     return n.xy;
 }
 
+fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
+    return vec2f(0.5 + ndc.x * 0.5, 0.5 - ndc.y * 0.5);
+}
+
 fn clip_to_uv(v: vec4<f32>) -> vec2<f32> {
     let ndc = v.xy / v.w;
-    return vec2f(0.5 + ndc.x * 0.5, 0.5 - ndc.y * 0.5);
+    return ndc_to_uv(ndc.xy);
     //return vec2f(0.5 + ndc.x * 0.5, 0.5 + ndc.y * 0.5);
 }
+
+
 
 #define GAMMA_CORRECTION
 
@@ -201,8 +211,10 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_facing: bool) -> Fr
     var alpha : f32 = 1.0;
     var albedo_color : vec3f = vec3f(0.0);
 
+
+    var uv = unjitter_texture_uv(in.uv, camera_data.jitter);
 #ifdef ALBEDO_TEXTURE
-    let albedo_uv : vec2f = get_albedo_uv(in.uv);
+    let albedo_uv : vec2f = get_albedo_uv(uv);
     let albedo_texture : vec4f = textureSample(albedo_texture, sampler_2d, albedo_uv);
     albedo_color = pow(albedo_texture.rgb * in.color.rgb,vec3f(2.2f));
     albedo_color = albedo_texture.rgb * in.color.rgb;
@@ -233,7 +245,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_facing: bool) -> Fr
     m.specular_weight = 1.0;
 
 #ifdef METALLIC_ROUGHNESS_TEXTURE
-    let metallic_roughness_uv : vec2f = get_metallic_roughness_uv(in.uv);
+    let metallic_roughness_uv : vec2f = get_metallic_roughness_uv(uv);
     var metal_rough : vec3f = textureSample(metallic_roughness_texture, sampler_2d, metallic_roughness_uv).rgb;
     m.roughness = metal_rough.g * occlusion_roughness_metallic.g;
     m.metallic = metal_rough.b * occlusion_roughness_metallic.b;
@@ -243,14 +255,14 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_facing: bool) -> Fr
 #endif
 
 #ifdef EMISSIVE_TEXTURE
-    let emissive_uv : vec2f = get_emissive_uv(in.uv);
+    let emissive_uv : vec2f = get_emissive_uv(uv);
     m.emissive = textureSample(emissive_texture, sampler_2d, emissive_uv).rgb * emissive;
 #else
     m.emissive = emissive;
 #endif
 
 #ifdef OCLUSSION_TEXTURE
-    let occlusion_uv : vec2f = get_occlusion_uv(in.uv);
+    let occlusion_uv : vec2f = get_occlusion_uv(uv);
     m.ao = textureSample(oclussion_texture, sampler_2d, occlusion_uv).r;
     m.ao = m.ao * occlusion_roughness_metallic.r;
 #else
@@ -264,10 +276,10 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_facing: bool) -> Fr
     let prev_obj_clip_uv = camera_data.prev_view_projection * vec4f(in.prev_world_position, 1.0);
     let prev_obj_uv = clip_to_uv(prev_obj_clip_uv);
 
-    var jitter_uv = camera_data.jitter;//*0.5;
-    jitter_uv = vec2f(camera_data.jitter.x,-camera_data.jitter.y)*0.5;
-    var prev_jitter_uv = camera_data.prev_jitter;//*0.5;
-    prev_jitter_uv = vec2f(camera_data.prev_jitter.x, -camera_data.prev_jitter.y) * 0.5;
+    var jitter_uv = ndc_to_uv(camera_data.jitter);//*0.5;
+    //jitter_uv = vec2f(camera_data.jitter.x,-camera_data.jitter.y)*0.5;
+    var prev_jitter_uv = ndc_to_uv(camera_data.prev_jitter);//*0.5;
+    //prev_jitter_uv = vec2f(camera_data.prev_jitter.x, -camera_data.prev_jitter.y) * 0.5;
 
 
     var velocity = vec2f((actual_uv+ jitter_uv) - (prev_obj_uv+prev_jitter_uv));

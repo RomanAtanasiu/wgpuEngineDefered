@@ -25,6 +25,23 @@ struct FragmentOutput {
     @location(0) color: vec4f
 }
 
+//takes the aabb, the point, the motion-vector and returns the clipped point all in uv space
+//from playdead https://github.com/playdeadgames/publications/blob/master/INSIDE/GDC2016_Temporal_Reprojection_AA_INSIDE.pdf
+fn clip_aabb(p: vec4<f32>, q: vec4<f32>, aabb_min: vec3<f32>, aabb_max: vec3<f32>) -> vec4<f32> {
+    let p_clip: vec3<f32> = 0.5*(aabb_max + aabb_min);
+    let e_clip: vec3<f32> = 0.5*(aabb_max - aabb_min);
+
+    let v_clip = q - vec4(p_clip, p.w);
+    let v_unit = v_clip.xyz / e_clip;
+    let a_unit = abs(v_unit);
+    let ma_unit = max(a_unit.x, max(a_unit.y, a_unit.z));
+    if(ma_unit >1.0){
+        return vec4<f32>(p_clip,p.w) + v_clip/ma_unit;
+    }
+    return q;
+}
+
+
 @fragment
 fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) -> FragmentOutput {
     var out: FragmentOutput;
@@ -37,6 +54,7 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
     //let velocityUV = textureLoad(gbuffer_normal_velocity, pixel, 0).ba;
     let velocityUV = textureSample(gbuffer_normal_velocity, bilinear_sampler, in.uv).ba;
     let prevUV = in.uv - velocityUV;
+
     let prevPixel = vec2<i32>(prevUV * vec2<f32>(screen_dims));
     //let previousColor = textureLoad(accumulation_buffer, prevPixel, 0);
     let previousColor = textureSample(accumulation_buffer, bilinear_sampler, prevUV);
@@ -54,6 +72,8 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
     var maxColor = vec3f(-9999.0);
 
     var blur_color = vec3f(0.0);
+
+
     for(var x = -1; x <= 1; x += 1)
     {
         for(var y = -1; y <= 1; y += 1)
@@ -72,14 +92,20 @@ fn fs_main(in: DefferedVertexOut, @builtin(front_facing) is_front_facing: bool) 
     }
     blur_color /= 9.0; 
 
+    var previousColorClipped = clip_aabb(color_current, previousColor, minColor, maxColor).xyz;
+
+
     let previousColorClamped = clamp(previousColor.rgb, minColor, maxColor);
 
     //let color_previous = textureLoad(accumulation_buffer, prevPixel, 0);
 
-    let accumulation = mix(previousColorClamped, color_current.rgb, 0.1);
+    let accumulation = mix(previousColorClipped, color_current.rgb, 0.1);
 
     out.color = vec4f(accumulation*(1.0 - velocityDisocclusion) + blur_color * velocityDisocclusion, 1.0);
     //out.color = vec4f(accumulation, 1.0);
 
+    if(prevUV.x>1.0||prevUV.x<0.0||prevUV.y>1.0||prevUV.y<0.0){
+        out.color = color_current;
+    }
     return out;
 }

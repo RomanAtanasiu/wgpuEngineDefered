@@ -552,10 +552,10 @@ void Renderer::render()
 
 
 
-        int prev_sample_jitter = (temporal_AA_data.current_sample - 1) % temporal_AA_data.num_samples;
-		if (prev_sample_jitter < 0) prev_sample_jitter = temporal_AA_data.num_samples - 1;
+
 		
-		int actual_sample_jitter = (temporal_AA_data.current_sample) % temporal_AA_data.num_samples;
+		int actual_sample_jitter = (temporal_AA_data.current_sample);
+		camera_data.prev_jitter = camera_data.jitter;
 
         float jitter_x = temporal_AA_data.samples[actual_sample_jitter].x * 2.0f - 1.0f;
 		float jitter_y = temporal_AA_data.samples[actual_sample_jitter].y * 2.0f - 1.0f;
@@ -565,11 +565,7 @@ void Renderer::render()
         camera_data.jitter = glm::vec2(jitter_x, jitter_y);
 
 
-        jitter_x = temporal_AA_data.samples[prev_sample_jitter].x * 2.0f - 1.0f;
-		jitter_y = temporal_AA_data.samples[prev_sample_jitter].y * 2.0f - 1.0f;
-		jitter_x = jitter_x * (1.0 / (2.0 * webgpu_context->render_width));
-		jitter_y = jitter_y * (1.0 / (2.0 * webgpu_context->render_height)); 
-		camera_data.prev_jitter = glm::vec2(jitter_x, jitter_y);
+
         wgpuQueueWriteBuffer(webgpu_context->device_queue, std::get<WGPUBuffer>(camera_uniform.data), 0, &camera_data, sizeof(sCameraData));
 
         
